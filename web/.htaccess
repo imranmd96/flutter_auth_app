@@ -1,0 +1,15 @@
+# Handle client-side routing for Flutter web
+# This ensures that direct URL access works properly
+
+RewriteEngine On
+RewriteBase /
+
+# Handle Angular and Flutter web routing
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# Security headers
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block" 
