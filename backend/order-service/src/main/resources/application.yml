@@ -1,0 +1,58 @@
+server:
+  port: 3004
+
+spring:
+  application:
+    name: order-service
+  data:
+    mongodb:
+      uri: mongodb+srv://imranmd96:imranmd96@book.bb9dssu.mongodb.net/order-service?retryWrites=true&w=majority
+      database: order-service
+  redis:
+    host: localhost
+    port: 6379
+
+# Service URLs
+service:
+  restaurant:
+    url: http://restaurant-service:3009
+  menu:
+    url: http://menu-service:3012
+  payment:
+    url: http://payment-service:3011
+  notification:
+    url: http://notification-service:3013
+
+# Order settings
+order:
+  max-items-per-order: 50
+  max-orders-per-customer: 100
+  max-active-orders: 10
+  default-preparation-time: 30 # minutes
+  status-update-interval: 5 # minutes
+  cleanup-interval: 24 # hours
+  retention-period: 90 # days
+
+# Payment settings
+payment:
+  timeout: 300 # seconds
+  retry-attempts: 3
+  retry-delay: 5 # seconds
+
+# Cache settings
+cache:
+  ttl: 3600 # seconds
+  max-size: 1000
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.restaurant.orderservice: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Disable Eureka client for local development
+eureka:
+  client:
+    enabled: false 

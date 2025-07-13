@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.prod
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      # - ./nginx/main.prod.conf:/etc/nginx/nginx.conf:ro  # Removed for consistency with dev
+      - ./nginx/ssl:/etc/ssl/private:ro
+      - ./nginx/static:/usr/share/nginx/html/static:ro
+      - ./nginx/logs:/var/log/nginx
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - api-gateway
+    networks:
+      - forkline-network
+    env_file:
+      - ./nginx/.env
+    environment:
+      - NODE_ENV=production
+      - ENABLE_MONITORING=false
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - forkline-network
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - forkline-network
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile.prod
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3015
+      - RESTAURANT_SERVICE_URL=http://restaurant-service:3012
+    depends_on:
+      - auth-service
+      - user-service
+      - restaurant-service
+    networks:
+      - forkline-network
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile.prod
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongodb:27017/auth-service
+      - REDIS_URL=redis://redis:6379
+      #- MONGODB_URI=${AUTH_SERVICE_MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./auth-service/uploads:/usr/src/app/uploads
+    depends_on:
+      - mongodb
+    networks:
+      - forkline-network
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile.prod
+    ports:
+      - "3015:3015"
+    environment:
+      - NODE_ENV=production
+      - PORT=3015
+      - MONGODB_URI=mongodb://mongodb:27017/user-service
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      #- MONGODB_URI=${USER_SERVICE_MONGODB_URI}
+    volumes:
+      # - ./user-service:/usr/src/app  # Removed to prevent overwriting dist
+      - ./user-service/uploads:/usr/src/app/uploads
+      # - /usr/src/app/node_modules  # Commented out to prevent overwriting node_modules
+    networks:
+      - forkline-network
+    command: npm start
+    depends_on:
+      - redis
+      - mongodb
+
+  restaurant-service:
+    build:
+      context: ./restaurant-service
+      dockerfile: Dockerfile.prod
+    ports:
+      - "3012:3012"
+    environment:
+      - NODE_ENV=production
+      - PORT=3012
+      - MONGODB_URI=mongodb://mongodb:27017/restaurant-service
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./restaurant-service/uploads:/usr/src/app/uploads
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - forkline-network
+
+networks:
+  forkline-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:

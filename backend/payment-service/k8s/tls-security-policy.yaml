@@ -1,0 +1,37 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: payment-service-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "false"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384"
+    nginx.ingress.kubernetes.io/ssl-early-data: "true"
+    nginx.ingress.kubernetes.io/ssl-session-tickets: "true"
+    nginx.ingress.kubernetes.io/ssl-session-cache: "true"
+    nginx.ingress.kubernetes.io/ssl-session-timeout: "1d"
+    nginx.ingress.kubernetes.io/ssl-buffer-size: "4k"
+    nginx.ingress.kubernetes.io/ssl-verify-client: "false"
+    nginx.ingress.kubernetes.io/ssl-verify-depth: "1"
+    nginx.ingress.kubernetes.io/ssl-prefer-server-ciphers: "true"
+    nginx.ingress.kubernetes.io/ssl-session-ticket-key: "${TLS_SESSION_TICKET_KEY}"
+spec:
+  tls:
+  - hosts:
+    - api.payment-service.com
+    secretName: payment-service-tls
+  rules:
+  - host: api.payment-service.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: payment-service
+            port:
+              number: 8080 

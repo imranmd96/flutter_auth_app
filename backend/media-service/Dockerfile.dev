@@ -1,0 +1,17 @@
+FROM node:18-alpine
+
+# Create app directory
+WORKDIR /usr/src/app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose ports
+EXPOSE 3007 9229
+
+# Start the application with nodemon for hot-reloading
+CMD ["npm", "run", "dev"] 

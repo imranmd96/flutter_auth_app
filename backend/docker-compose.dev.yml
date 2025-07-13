@@ -1,0 +1,314 @@
+version: '3.8'
+
+services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.dev
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    depends_on:
+      - api-gateway
+    networks:
+      - forkline-network
+    volumes:
+      - ./nginx/ssl:/etc/ssl/private
+      - ./nginx/static:/usr/share/nginx/html/static:ro
+      - ./nginx/logs:/var/log/nginx
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    env_file:
+      - ./nginx/.env
+    environment:
+      - NODE_ENV=development
+      - ENABLE_MONITORING=true
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - forkline-network
+    volumes:
+      - redis_data:/data
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+      - "9229:9229"  # Debug port
+    environment:
+      - NODE_ENV=development
+      - DOCKER_ENV=true
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      # - USER_SERVICE_URL=http://user-service:3015
+      # - RESTAURANT_SERVICE_URL=http://restaurant-service:3012
+      # - ORDER_SERVICE_URL=http://order-service:3010
+      # - BOOKING_SERVICE_URL=http://booking-service:3002
+    volumes:
+      - ./api-gateway:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - auth-service
+      # - user-service
+      # - restaurant-service
+      # - order-service
+      # - booking-service
+    networks:
+      - forkline-network
+    command: npm run dev
+
+  # user-service:
+  #   build:
+  #     context: ./user-service
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3015:3015"
+  #     - "9229:9229"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3015
+  #     - MONGODB_URI=${USER_SERVICE_MONGODB_URI}
+  #     - JWT_SECRET=${JWT_SECRET}
+  #     - REDIS_URL=redis://redis:6379
+  #   volumes:
+  #     - ./user-service:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #   networks:
+  #     - forkline-network
+  #   command: npm run dev
+  #   depends_on:
+  #     - redis
+  #     - mongodb
+
+  # restaurant-service:
+  #   build:
+  #     context: ./restaurant-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3012:3012"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3012
+  #     - MONGODB_URI=${RESTAURANT_SERVICE_MONGODB_URI}
+  #   volumes:
+  #     - ./restaurant-service:/usr/src/app
+  #   networks:
+  #     - forkline-network
+
+  # order-service:
+  #   build:
+  #     context: ./order-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3010:3010"
+  #   environment:
+  #     - SPRING_PROFILES_ACTIVE=dev
+  #   networks:
+  #     - forkline-network
+  #   depends_on:
+  #     - mongodb
+
+  # booking-service:
+  #   build:
+  #     context: ./booking-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3002:3002"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3002
+  #     - MONGODB_URI=${BOOKING_SERVICE_MONGODB_URI}
+  #   volumes:
+  #     - ./booking-service:/usr/src/app
+  #   networks:
+  #     - forkline-network
+
+  # chat-service:
+  #   build:
+  #     context: ./chat-service
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3003:3003"
+  #     - "9234:9229"  # Debug port
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3003
+  #     - MONGODB_URI=${CHAT_SERVICE_MONGODB_URI}
+  #     - JWT_SECRET=${JWT_SECRET}
+  #   volumes:
+  #     - ./chat-service:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #   networks:
+  #     - forkline-network
+  #   command: npm run dev
+
+  # notification-service:
+  #   build:
+  #     context: ./notification-service
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3009:3009"
+  #     - "9235:9229"  # Debug port
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3009
+  #     - MONGODB_URI=${NOTIFICATION_SERVICE_MONGODB_URI}
+  #   volumes:
+  #     - ./notification-service:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #   networks:
+  #     - forkline-network
+  #   command: npm run dev
+
+  # menu-service:
+  #   build:
+  #     context: ./menu-service
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3008:3008"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3008
+  #     - MONGODB_URI=${MENU_SERVICE_MONGODB_URI}
+  #     - REDIS_URL=redis://redis:6379
+  #   volumes:
+  #     - ./menu-service:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #   networks:
+  #     - forkline-network
+  #   command: npm run dev
+  #   depends_on:
+  #     - redis
+  #     - mongodb
+
+  # payment-service:
+  #   build:
+  #     context: ./payment-service
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3011:3011"
+  #     - "9237:9229"  # Debug port
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3011
+  #     - MONGODB_URI=${PAYMENT_SERVICE_MONGODB_URI}
+  #   volumes:
+  #     - ./payment-service:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #   networks:
+  #     - forkline-network
+  #   command: npm run dev
+
+  # review-service:
+  #   build:
+  #     context: ./review-service
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3013:3013"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3013
+  #     - MONGODB_URI=${REVIEW_SERVICE_MONGODB_URI}
+  #     - REDIS_URL=redis://redis:6379
+  #   volumes:
+  #     - ./review-service:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #   networks:
+  #     - forkline-network
+  #   command: npm run dev
+  #   depends_on:
+  #     - redis
+  #     - mongodb
+
+  # inventory-service:
+  #   build:
+  #     context: ./inventory-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3005:3005"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3005
+  #     - MONGODB_URI=${INVENTORY_SERVICE_MONGODB_URI}
+  #   volumes:
+  #     - ./inventory-service:/usr/src/app
+  #   networks:
+  #     - forkline-network
+
+  # media-service:
+  #   build:
+  #     context: ./media-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3007:3007"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3007
+  #     - MONGODB_URI=${MEDIA_SERVICE_MONGODB_URI}
+  #   volumes:
+  #     - ./media-service:/usr/src/app
+  #   networks:
+  #     - forkline-network
+
+  # analytics-service:
+  #   build:
+  #     context: ./analytics-service
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3016:3016"
+  #   environment:
+  #     - NODE_ENV=development
+  #     - PORT=3016
+  #     - MONGODB_URI=${ANALYTICS_SERVICE_MONGODB_URI}
+  #     - REDIS_URL=redis://redis:6379
+  #   volumes:
+  #     - ./analytics-service:/usr/src/app
+  #     - /usr/src/app/node_modules
+  #   networks:
+  #     - forkline-network
+  #   command: npm run dev
+  #   depends_on:
+  #     - redis
+  #     - mongodb
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - forkline-network
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3001:3001"
+      - "9231:9229"  # Debug port
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - MONGODB_URI=${AUTH_SERVICE_MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./auth-service:/usr/src/app
+      - /usr/src/app/node_modules
+    networks:
+      - forkline-network
+    command: npm run dev
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  forkline-network:
+    driver: bridge 

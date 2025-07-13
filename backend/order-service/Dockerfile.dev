@@ -1,0 +1,17 @@
+# Development stage
+FROM maven:3.9-eclipse-temurin-17
+
+WORKDIR /app
+
+# Copy pom.xml first to cache dependencies
+COPY pom.xml .
+RUN mvn dependency:go-offline
+
+# Copy source code
+COPY src ./src
+
+# Expose the port
+EXPOSE 3004
+
+# Run with spring-boot-devtools for hot reloading
+CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.jvmArguments='-Dspring.devtools.restart.enabled=true'"] 

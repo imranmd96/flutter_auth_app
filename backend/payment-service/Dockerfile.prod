@@ -1,0 +1,76 @@
+# Build stage
+FROM node:18-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies for node-gyp
+RUN apk add --no-cache python3 make g++
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build TypeScript code
+RUN npm run build
+
+# Security scan stage
+FROM aquasec/trivy:latest AS security-scan
+COPY --from=builder /app/dist /app/dist
+RUN trivy filesystem /app/dist --exit-code 1 --severity HIGH,CRITICAL
+
+# Production stage
+FROM node:18-alpine AS production
+
+# Set working directory
+WORKDIR /app
+
+# Install security updates and required packages
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache tini curl && \
+    rm -rf /var/cache/apk/*
+
+# Install production dependencies only
+COPY package*.json ./
+RUN npm ci --only=production && \
+    npm audit fix --force && \
+    npm cache clean --force
+
+# Copy built files from builder stage
+COPY --from=builder /app/dist ./dist
+
+# Copy necessary files
+COPY --from=builder /app/.env.production ./.env
+
+# Create non-root user with specific UID/GID
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app && \
+    chmod -R 755 /app && \
+    chmod -R 500 /app/dist
+
+# Set environment variables
+ENV NODE_ENV=production \
+    PORT=3000 \
+    NODE_OPTIONS="--max-old-space-size=512 --max-http-header-size=16384" \
+    TZ=UTC
+
+# Expose port
+EXPOSE 3000
+
+# Use tini as init system
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Health check with timeout and retries
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Start the application with non-root user
+USER nodejs
+CMD ["node", "dist/server.js"]

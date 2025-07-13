@@ -1,0 +1,272 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 0 * * *'  # Daily security scan
+
+env:
+  DOCKER_REGISTRY: ghcr.io
+  KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  AWS_REGION: us-east-1
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Validate package.json
+      run: |
+        npm pkg get name version
+        npm pkg get dependencies
+        npm pkg get devDependencies
+    
+    - name: Check for secrets in code
+      uses: trufflesecurity/trufflehog@v3.14.0
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
+    
+    - name: Validate Dockerfile
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile
+
+  test:
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x]
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linter
+      run: npm run lint
+    
+    - name: Run unit tests
+      run: npm run test:unit
+    
+    - name: Run integration tests
+      run: npm run test:integration
+    
+    - name: Run performance tests
+      run: npm run test:performance
+    
+    - name: Upload test coverage
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: true
+
+  security:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run npm audit
+      run: npm audit --production
+    
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+    
+    - name: Run OWASP dependency check
+      uses: dependency-check/Dependency-Check_Action@main
+      with:
+        project: 'Payment Service'
+        path: '.'
+        format: 'HTML'
+        out: 'reports'
+    
+    - name: Run container scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'payment-service:latest'
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
+    
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: reports/
+
+  build:
+    needs: security
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}:latest
+          ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}:${{ github.sha }}
+          ${{ steps.login-ecr.outputs.registry }}/${{ github.repository }}:latest
+          ${{ steps.login-ecr.outputs.registry }}/${{ github.repository }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_VERSION=${{ github.sha }}
+          BUILD_DATE=${{ github.event.repository.updated_at }}
+
+  performance:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run k6 performance tests
+      uses: grafana/k6-action@v0.2.0
+      with:
+        filename: tests/performance/load-test.js
+        flags: --out json=results.json
+    
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: results.json
+
+  deploy-staging:
+    needs: [build, performance]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
+    
+    - name: Set up kubeconfig
+      run: |
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.KUBE_CONFIG_STAGING }}" > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+    
+    - name: Deploy to staging
+      run: |
+        kubectl apply -f k8s/staging/
+        kubectl set image deployment/payment-service \
+          payment-service=${{ env.DOCKER_REGISTRY }}/${{ github.repository }}:${{ github.sha }}
+    
+    - name: Run smoke tests
+      run: npm run test:smoke -- --env staging
+    
+    - name: Notify Slack
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow,job,took
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      if: always()
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v3
+    
+    - name: Set up kubeconfig
+      run: |
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.KUBE_CONFIG_PROD }}" > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+    
+    - name: Deploy to production
+      run: |
+        kubectl apply -f k8s/production/
+        kubectl set image deployment/payment-service \
+          payment-service=${{ env.DOCKER_REGISTRY }}/${{ github.repository }}:${{ github.sha }}
+    
+    - name: Run smoke tests
+      run: npm run test:smoke -- --env production
+    
+    - name: Notify Slack
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow,job,took
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      if: always()
+
+  post-deployment:
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - name: Run post-deployment checks
+      run: |
+        # Check service health
+        curl -f https://api.payment-service.com/health
+        
+        # Check metrics
+        curl -f https://api.payment-service.com/metrics
+        
+        # Check logs
+        kubectl logs -l app=payment-service --tail=100
+    
+    - name: Create GitHub release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release ${{ github.sha }}
+        body: |
+          Changes in this Release:
+          ${{ github.event.head_commit.message }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Update documentation
+      run: |
+        npm run docs:generate
+        npm run docs:deploy 

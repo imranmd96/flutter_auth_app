@@ -1,0 +1,1307 @@
+openapi: 3.0.0
+info:
+  title: ForkLine API Gateway
+  description: |
+    Complete API documentation for the ForkLine restaurant management system.
+    This API Gateway routes requests to multiple microservices:
+    - Auth Service (Port 3001)
+    - User Service (Port 3015)  
+    - Restaurant Service (Port 3012)
+    - Order Service (Port 3010)
+    - Booking Service (Port 3011)
+    - And more...
+  version: 1.0.0
+  contact:
+    name: ForkLine API Support
+    url: https://github.com/your-repo/forkline
+    email: support@forkline.com
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.forkline.com
+    description: Production server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from login endpoint
+
+  schemas:
+    # Common schemas
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [fail, error]
+          example: "error"
+        message:
+          type: string
+          example: "An error occurred"
+
+    SuccessResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success]
+          example: "success"
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+    # Auth schemas
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - name
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          minLength: 6
+          example: "password123"
+        name:
+          type: string
+          example: "John Doe"
+        phone:
+          type: string
+          example: "+1234567890"
+        role:
+          type: string
+          enum: [user, admin, restaurant_owner]
+          default: user
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        password:
+          type: string
+          example: "password123"
+
+    AuthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "Login successful"
+        data:
+          type: object
+          properties:
+            accessToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            refreshToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            user:
+              $ref: '#/components/schemas/User'
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    UpdatePasswordRequest:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          example: "oldpassword123"
+        newPassword:
+          type: string
+          minLength: 6
+          example: "newpassword123"
+
+    # User schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "64f8b9c12345678901234567"
+        name:
+          type: string
+          example: "John Doe"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        phone:
+          type: string
+          example: "+1234567890"
+        role:
+          type: string
+          enum: [user, admin, restaurant_owner]
+          example: "user"
+        avatar:
+          type: string
+          example: "https://example.com/avatar.jpg"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2023-09-01T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2023-09-01T10:00:00Z"
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "John Doe"
+        phone:
+          type: string
+          example: "+1234567890"
+
+    # Restaurant schemas
+    Restaurant:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "64f8b9c12345678901234567"
+        name:
+          type: string
+          example: "Mario's Italian Restaurant"
+        description:
+          type: string
+          example: "Authentic Italian cuisine in the heart of the city"
+        cuisine_type:
+          type: string
+          example: "Italian"
+        address:
+          type: object
+          properties:
+            street:
+              type: string
+              example: "123 Main St"
+            city:
+              type: string
+              example: "New York"
+            state:
+              type: string
+              example: "NY"
+            zip_code:
+              type: string
+              example: "10001"
+        location:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [Point]
+              example: "Point"
+            coordinates:
+              type: array
+              items:
+                type: number
+              example: [-73.935242, 40.730610]
+        rating:
+          type: number
+          format: float
+          example: 4.5
+        price_range:
+          type: string
+          enum: ["$", "$$", "$$$", "$$$$"]
+          example: "$$"
+        has_delivery:
+          type: boolean
+          example: true
+        has_reservations:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [active, inactive, pending]
+          example: "active"
+        owner_id:
+          type: string
+          example: "64f8b9c12345678901234567"
+        created_at:
+          type: string
+          format: date-time
+          example: "2023-09-01T10:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2023-09-01T10:00:00Z"
+
+    CreateRestaurantRequest:
+      type: object
+      required:
+        - name
+        - description
+        - cuisine_type
+        - address
+      properties:
+        name:
+          type: string
+          example: "Mario's Italian Restaurant"
+        description:
+          type: string
+          example: "Authentic Italian cuisine"
+        cuisine_type:
+          type: string
+          example: "Italian"
+        address:
+          type: object
+          required:
+            - street
+            - city
+            - state
+            - zip_code
+          properties:
+            street:
+              type: string
+              example: "123 Main St"
+            city:
+              type: string
+              example: "New York"
+            state:
+              type: string
+              example: "NY"
+            zip_code:
+              type: string
+              example: "10001"
+        price_range:
+          type: string
+          enum: ["$", "$$", "$$$", "$$$$"]
+          example: "$$"
+        has_delivery:
+          type: boolean
+          example: true
+        has_reservations:
+          type: boolean
+          example: true
+
+    MenuItem:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "64f8b9c12345678901234567"
+        restaurant_id:
+          type: string
+          example: "64f8b9c12345678901234567"
+        name:
+          type: string
+          example: "Margherita Pizza"
+        description:
+          type: string
+          example: "Classic pizza with tomato sauce, mozzarella, and fresh basil"
+        price:
+          type: number
+          format: float
+          example: 12.99
+        category:
+          type: string
+          example: "Pizza"
+        image_url:
+          type: string
+          example: "https://example.com/pizza.jpg"
+        is_available:
+          type: boolean
+          example: true
+        is_spicy:
+          type: boolean
+          example: false
+        is_vegetarian:
+          type: boolean
+          example: true
+        is_popular:
+          type: boolean
+          example: true
+        allergens:
+          type: array
+          items:
+            type: string
+          example: ["gluten", "dairy"]
+        status:
+          type: string
+          enum: [active, inactive]
+          example: "active"
+
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+        pagination:
+          type: object
+          properties:
+            current_page:
+              type: integer
+              example: 1
+            per_page:
+              type: integer
+              example: 10
+            total:
+              type: integer
+              example: 100
+            total_pages:
+              type: integer
+              example: 10
+            has_next:
+              type: boolean
+              example: true
+            has_prev:
+              type: boolean
+              example: false
+
+security:
+  - bearerAuth: []
+
+paths:
+  # Health check
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the API Gateway is running
+      security: []
+      responses:
+        '200':
+          description: API Gateway is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "API Gateway is running"
+
+  # AUTH SERVICE ENDPOINTS
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Create a new user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and return JWT tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Unauthorized - invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/refresh-token:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get a new access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Logout user and invalidate tokens
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/auth/update-password:
+    post:
+      tags:
+        - Authentication
+      summary: Update password
+      description: Update user password (requires authentication)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePasswordRequest'
+      responses:
+        '200':
+          description: Password updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Unauthorized or invalid current password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/account:
+    delete:
+      tags:
+        - Authentication
+      summary: Delete account
+      description: Delete user account (requires authentication)
+      responses:
+        '200':
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/profile:
+    patch:
+      tags:
+        - Authentication
+      summary: Update profile
+      description: Update user profile information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  # USER SERVICE ENDPOINTS
+  /api/users/profile:
+    get:
+      tags:
+        - User
+      summary: Get user profile
+      description: Get current user profile information
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags:
+        - User
+      summary: Update user profile
+      description: Update current user profile information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  /api/users/profile/avatar:
+    post:
+      tags:
+        - User
+      summary: Upload avatar
+      description: Upload user avatar image
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Avatar uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      avatar_url:
+                        type: string
+                        example: "https://example.com/avatar.jpg"
+
+    get:
+      tags:
+        - User
+      summary: Get avatar
+      description: Get current user avatar
+      responses:
+        '200':
+          description: Avatar retrieved successfully
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Avatar not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # RESTAURANT SERVICE ENDPOINTS
+  /api/restaurants:
+    get:
+      tags:
+        - Restaurant
+      summary: Get restaurants
+      description: Get paginated list of restaurants with optional filtering
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            default: 10
+        - name: cuisine_type
+          in: query
+          description: Filter by cuisine type
+          schema:
+            type: string
+            example: "Italian"
+        - name: min_rating
+          in: query
+          description: Minimum rating filter
+          schema:
+            type: number
+            format: float
+            example: 4.0
+        - name: has_delivery
+          in: query
+          description: Filter by delivery availability
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          description: Search restaurants by name or description
+          schema:
+            type: string
+        - name: lat
+          in: query
+          description: Latitude for location-based search
+          schema:
+            type: number
+            format: float
+        - name: lng
+          in: query
+          description: Longitude for location-based search
+          schema:
+            type: number
+            format: float
+        - name: max_distance
+          in: query
+          description: Maximum distance in kilometers
+          schema:
+            type: number
+            format: float
+            default: 10
+      responses:
+        '200':
+          description: Restaurants retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Restaurant'
+
+    post:
+      tags:
+        - Restaurant
+      summary: Create restaurant
+      description: Create a new restaurant (requires restaurant owner role)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRestaurantRequest'
+      responses:
+        '201':
+          description: Restaurant created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: '#/components/schemas/Restaurant'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/restaurants/{restaurant_id}:
+    get:
+      tags:
+        - Restaurant
+      summary: Get restaurant by ID
+      description: Get detailed information about a specific restaurant
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          description: Restaurant ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Restaurant retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: '#/components/schemas/Restaurant'
+        '404':
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Restaurant
+      summary: Update restaurant
+      description: Update restaurant information (requires restaurant owner role)
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          description: Restaurant ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRestaurantRequest'
+      responses:
+        '200':
+          description: Restaurant updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: '#/components/schemas/Restaurant'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Restaurant
+      summary: Delete restaurant
+      description: Delete a restaurant (requires restaurant owner role)
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          description: Restaurant ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Restaurant deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/restaurants/{restaurant_id}/menu-items:
+    get:
+      tags:
+        - Menu
+      summary: Get menu items
+      description: Get paginated list of menu items for a restaurant
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          description: Restaurant ID
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            default: 10
+        - name: category
+          in: query
+          description: Filter by category
+          schema:
+            type: string
+        - name: is_popular
+          in: query
+          description: Filter by popular items
+          schema:
+            type: boolean
+        - name: min_price
+          in: query
+          description: Minimum price filter
+          schema:
+            type: number
+            format: float
+        - name: max_price
+          in: query
+          description: Maximum price filter
+          schema:
+            type: number
+            format: float
+        - name: search
+          in: query
+          description: Search menu items by name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Menu items retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MenuItem'
+
+    post:
+      tags:
+        - Menu
+      summary: Create menu item
+      description: Create a new menu item for a restaurant (requires restaurant staff role)
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          description: Restaurant ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - description
+                - price
+                - category
+              properties:
+                name:
+                  type: string
+                  example: "Margherita Pizza"
+                description:
+                  type: string
+                  example: "Classic pizza with tomato sauce and mozzarella"
+                price:
+                  type: number
+                  format: float
+                  example: 12.99
+                category:
+                  type: string
+                  example: "Pizza"
+                image_url:
+                  type: string
+                  example: "https://example.com/pizza.jpg"
+                is_spicy:
+                  type: boolean
+                  example: false
+                is_vegetarian:
+                  type: boolean
+                  example: true
+                allergens:
+                  type: array
+                  items:
+                    type: string
+                  example: ["gluten", "dairy"]
+      responses:
+        '201':
+          description: Menu item created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: '#/components/schemas/MenuItem'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/restaurants/{restaurant_id}/tables:
+    get:
+      tags:
+        - Table
+      summary: Get tables
+      description: Get list of tables for a restaurant
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          description: Restaurant ID
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by table status
+          schema:
+            type: string
+            enum: [available, occupied, reserved]
+        - name: min_capacity
+          in: query
+          description: Minimum table capacity
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Tables retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        table_number:
+                          type: string
+                        capacity:
+                          type: integer
+                        status:
+                          type: string
+                          enum: [available, occupied, reserved]
+
+    post:
+      tags:
+        - Table
+      summary: Create table
+      description: Create a new table for a restaurant (requires restaurant staff role)
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          description: Restaurant ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - table_number
+                - capacity
+              properties:
+                table_number:
+                  type: string
+                  example: "T-01"
+                capacity:
+                  type: integer
+                  example: 4
+                table_type:
+                  type: string
+                  example: "indoor"
+      responses:
+        '201':
+          description: Table created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      table_number:
+                        type: string
+                      capacity:
+                        type: integer
+                      status:
+                        type: string
+
+  /api/restaurants/{restaurant_id}/reservations:
+    get:
+      tags:
+        - Reservation
+      summary: Get reservations
+      description: Get paginated list of reservations for a restaurant
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          description: Restaurant ID
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          description: Filter by reservation status
+          schema:
+            type: string
+            enum: [pending, confirmed, cancelled, completed]
+        - name: start_date
+          in: query
+          description: Start date for filtering reservations
+          schema:
+            type: string
+            format: date-time
+        - name: end_date
+          in: query
+          description: End date for filtering reservations
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Reservations retrieved successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            customer_name:
+                              type: string
+                            customer_email:
+                              type: string
+                            customer_phone:
+                              type: string
+                            party_size:
+                              type: integer
+                            reservation_time:
+                              type: string
+                              format: date-time
+                            status:
+                              type: string
+                              enum: [pending, confirmed, cancelled, completed]
+                            special_requests:
+                              type: string
+
+    post:
+      tags:
+        - Reservation
+      summary: Create reservation
+      description: Create a new reservation for a restaurant
+      parameters:
+        - name: restaurant_id
+          in: path
+          required: true
+          description: Restaurant ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customer_name
+                - customer_email
+                - customer_phone
+                - party_size
+                - reservation_time
+              properties:
+                customer_name:
+                  type: string
+                  example: "John Doe"
+                customer_email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+                customer_phone:
+                  type: string
+                  example: "+1234567890"
+                party_size:
+                  type: integer
+                  example: 4
+                reservation_time:
+                  type: string
+                  format: date-time
+                  example: "2023-12-01T19:00:00Z"
+                special_requests:
+                  type: string
+                  example: "Window seat preferred"
+      responses:
+        '201':
+          description: Reservation created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      customer_name:
+                        type: string
+                      reservation_time:
+                        type: string
+                        format: date-time
+                      status:
+                        type: string
+                        enum: [pending, confirmed, cancelled, completed]
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Authentication
+    description: User authentication and authorization
+  - name: User
+    description: User profile management
+  - name: Restaurant
+    description: Restaurant management
+  - name: Menu
+    description: Menu item management
+  - name: Table
+    description: Table management
+  - name: Reservation
+    description: Reservation management 
