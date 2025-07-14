@@ -3,12 +3,18 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+package-lock.json
+yarn.lock
 
 # Build outputs
 build/
 dist/
 .next/
 out/
+target/
+*.jar
+*.war
+*.ear
 
 # Flutter
 .dart_tool/
@@ -18,25 +24,31 @@ out/
 .pub-cache/
 .pub/
 pubspec.lock
+*.dill
+*.track.dill
 
 # Environment files
 .env
 .env.local
 .env.production
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
+.env.development
 
 # Logs
 *.log
 logs/
+combined.log
+error.log
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE files
+.vscode/
+.idea/
+*.iml
 
 # Runtime data
 pids/
@@ -48,6 +60,40 @@ pids/
 coverage/
 .nyc_output/
 
+# Cache
+.cache/
+*.cache
+
 # Temporary files
 tmp/
 temp/
+*.tmp
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads
+uploads/
+media/
+static/media/
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.cert
+
+# Docker
+Dockerfile.local
+docker-compose.override.yml
+.dockerignore
+
+# Platform specific
+android/
+ios/
+macos/
+linux/
+windows/
+web/

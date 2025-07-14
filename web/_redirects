@@ -1,5 +1,0 @@
-# Handle client-side routing for Flutter web
-# This ensures that direct URL access works properly
-# Redirect all routes to index.html except for static assets
-
-/*    /index.html   200 
