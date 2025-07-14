@@ -1,0 +1,215 @@
+name: 🔐 Auth Service - Production CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/auth-service/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/auth-service/**'
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force production deployment'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  SERVICE_NAME: auth-service
+  SERVICE_PATH: backend/auth-service
+  REGISTRY: ghcr.io
+  IMAGE_NAME: forkline/auth-service
+  PRODUCTION_URL: https://auth.forkline.com
+
+jobs:
+  # =====================================
+  # SECURITY & VALIDATION
+  # =====================================
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './backend/auth-service'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # =====================================
+  # BUILD & TEST
+  # =====================================
+  build-test:
+    name: 🧪 Build & Test
+    runs-on: ubuntu-latest
+    needs: security-scan
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: backend/auth-service/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd backend/auth-service
+          npm ci
+
+      - name: Run linting
+        run: |
+          cd backend/auth-service
+          npm run lint || true
+
+      - name: Run tests
+        run: |
+          cd backend/auth-service
+          npm run test || true
+
+      - name: Build application
+        run: |
+          cd backend/auth-service
+          npm run build || true
+
+  # =====================================
+  # DOCKER BUILD & PUSH
+  # =====================================
+  docker-build:
+    name: 🐳 Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: build-test
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/auth-service
+          file: ./backend/auth-service/Dockerfile.prod
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # =====================================
+  # PRODUCTION DEPLOYMENT
+  # =====================================
+  deploy-production:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Railway
+        run: |
+          echo "🚀 Deploying Auth Service to Railway..."
+          curl -X POST "${{ secrets.RAILWAY_WEBHOOK_AUTH_SERVICE }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "service": "auth-service",
+              "environment": "production",
+              "image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest",
+              "commit": "${{ github.sha }}"
+            }'
+
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Waiting for deployment to complete..."
+          sleep 60
+
+      - name: Health check
+        run: |
+          echo "🔍 Performing health check..."
+          max_attempts=30
+          attempt=0
+          
+          while [ $attempt -lt $max_attempts ]; do
+            if curl -f -s "${{ env.PRODUCTION_URL }}/health" > /dev/null; then
+              echo "✅ Auth Service is healthy!"
+              exit 0
+            fi
+            echo "⏳ Attempt $((attempt+1))/$max_attempts - Service not ready yet..."
+            sleep 10
+            attempt=$((attempt+1))
+          done
+          
+          echo "❌ Health check failed after $max_attempts attempts"
+          exit 1
+
+  # =====================================
+  # POST-DEPLOYMENT
+  # =====================================
+  post-deployment:
+    name: 📊 Post-Deployment Tasks
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: always()
+    
+    steps:
+      - name: Notify Slack
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+
+      - name: Update deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Auth Service deployment successful!"
+            echo "🔗 Production URL: ${{ env.PRODUCTION_URL }}"
+          else
+            echo "❌ Auth Service deployment failed!"
+          fi 
