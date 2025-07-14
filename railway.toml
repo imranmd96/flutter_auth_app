@@ -1,0 +1,130 @@
+[project]
+name = "forkline-backend"
+
+# =====================================
+# API GATEWAY - Main Entry Point
+# =====================================
+[services.api-gateway]
+name = "forkline-api-gateway"
+source = "backend/api-gateway"
+build = "npm install && npm run build"
+start = "npm start"
+healthcheck = "/health"
+
+[services.api-gateway.variables]
+NODE_ENV = "production"
+PORT = "3000"
+JWT_SECRET = "$JWT_SECRET"
+AUTH_SERVICE_URL = "https://forkline-auth-service.up.railway.app"
+USER_SERVICE_URL = "https://forkline-user-service.up.railway.app"
+RESTAURANT_SERVICE_URL = "https://forkline-restaurant-service.onrender.com"
+REDIS_URL = "$REDIS_URL"
+MONGODB_URI = "$MONGODB_URI"
+
+[services.api-gateway.domains]
+production = "api.forkline.com"
+staging = "staging-api.forkline.com"
+
+# =====================================
+# AUTH SERVICE - Authentication
+# =====================================
+[services.auth-service]
+name = "forkline-auth-service"
+source = "backend/auth-service"
+build = "npm install && npm run build"
+start = "npm start"
+healthcheck = "/health"
+
+[services.auth-service.variables]
+NODE_ENV = "production"
+PORT = "3001"
+JWT_SECRET = "$JWT_SECRET"
+JWT_EXPIRES_IN = "24h"
+MONGODB_URI = "$MONGODB_URI"
+REDIS_URL = "$REDIS_URL"
+BCRYPT_ROUNDS = "12"
+
+# =====================================
+# USER SERVICE - User Management
+# =====================================
+[services.user-service]
+name = "forkline-user-service"
+source = "backend/user-service"
+build = "npm install && npm run build"
+start = "npm start"
+healthcheck = "/health"
+
+[services.user-service.variables]
+NODE_ENV = "production"
+PORT = "3015"
+MONGODB_URI = "$MONGODB_URI"
+REDIS_URL = "$REDIS_URL"
+JWT_SECRET = "$JWT_SECRET"
+UPLOAD_PATH = "/tmp/uploads"
+MAX_FILE_SIZE = "5MB"
+
+# =====================================
+# CHAT SERVICE - Real-time Communication
+# =====================================
+[services.chat-service]
+name = "forkline-chat-service"
+source = "backend/chat-service"
+build = "npm install && npm run build"
+start = "npm start"
+healthcheck = "/health"
+
+[services.chat-service.variables]
+NODE_ENV = "production"
+PORT = "3016"
+MONGODB_URI = "$MONGODB_URI"
+REDIS_URL = "$REDIS_URL"
+JWT_SECRET = "$JWT_SECRET"
+WEBSOCKET_PORT = "3017"
+
+# =====================================
+# NOTIFICATION SERVICE - Messaging
+# =====================================
+[services.notification-service]
+name = "forkline-notification-service"
+source = "backend/notification-service"
+build = "npm install && npm run build"
+start = "npm start"
+healthcheck = "/health"
+
+[services.notification-service.variables]
+NODE_ENV = "production"
+PORT = "3018"
+MONGODB_URI = "$MONGODB_URI"
+REDIS_URL = "$REDIS_URL"
+JWT_SECRET = "$JWT_SECRET"
+EMAIL_SERVICE = "$EMAIL_SERVICE"
+SMS_SERVICE = "$SMS_SERVICE"
+PUSH_NOTIFICATION_KEY = "$PUSH_NOTIFICATION_KEY"
+
+# =====================================
+# REVIEW SERVICE - Ratings & Feedback
+# =====================================
+[services.review-service]
+name = "forkline-review-service"
+source = "backend/review-service"
+build = "npm install && npm run build"
+start = "npm start"
+healthcheck = "/health"
+
+[services.review-service.variables]
+NODE_ENV = "production"
+PORT = "3019"
+MONGODB_URI = "$MONGODB_URI"
+REDIS_URL = "$REDIS_URL"
+JWT_SECRET = "$JWT_SECRET"
+
+# =====================================
+# DATABASES - External Services
+# =====================================
+[services.redis]
+external = true
+url = "$REDIS_URL"
+
+[services.mongodb]
+external = true  
+url = "$MONGODB_URI" 

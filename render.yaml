@@ -1,0 +1,262 @@
+services:
+  # =====================================
+  # RESTAURANT SERVICE - Python/FastAPI
+  # =====================================
+  - type: web
+    name: forkline-restaurant-service
+    env: python
+    plan: starter
+    buildCommand: "cd backend/restaurant-service && pip install -r requirements.txt"
+    startCommand: "cd backend/restaurant-service && uvicorn src.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        fromDatabase:
+          name: forkline-mongodb
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: forkline-redis
+          property: connectionString
+      - key: JWT_SECRET
+        sync: false
+
+  # =====================================
+  # MENU SERVICE - Python/FastAPI
+  # =====================================
+  - type: web
+    name: forkline-menu-service
+    env: python
+    plan: starter
+    buildCommand: "cd backend/menu-service && pip install -r requirements.txt"
+    startCommand: "cd backend/menu-service && uvicorn src.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        fromDatabase:
+          name: forkline-mongodb
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: forkline-redis
+          property: connectionString
+
+  # =====================================
+  # ANALYTICS SERVICE - Python/FastAPI
+  # =====================================
+  - type: web
+    name: forkline-analytics-service
+    env: python
+    plan: starter
+    buildCommand: "cd backend/analytics-service && pip install -r requirements.txt"
+    startCommand: "cd backend/analytics-service && uvicorn src.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        fromDatabase:
+          name: forkline-mongodb
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: forkline-redis
+          property: connectionString
+
+  # =====================================
+  # INVENTORY SERVICE - Python/FastAPI
+  # =====================================
+  - type: web
+    name: forkline-inventory-service
+    env: python
+    plan: starter
+    buildCommand: "cd backend/inventory-service && pip install -r requirements.txt"
+    startCommand: "cd backend/inventory-service && uvicorn src.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        fromDatabase:
+          name: forkline-mongodb
+          property: connectionString
+
+  # =====================================
+  # SEARCH SERVICE - Python/FastAPI
+  # =====================================
+  - type: web
+    name: forkline-search-service
+    env: python
+    plan: starter
+    buildCommand: "cd backend/search-service && pip install -r requirements.txt"
+    startCommand: "cd backend/search-service && uvicorn src.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        fromDatabase:
+          name: forkline-mongodb
+          property: connectionString
+      - key: ELASTICSEARCH_URL
+        sync: false
+
+  # =====================================
+  # MEDIA SERVICE - Python/FastAPI
+  # =====================================
+  - type: web
+    name: forkline-media-service
+    env: python
+    plan: starter
+    buildCommand: "cd backend/media-service && pip install -r requirements.txt"
+    startCommand: "cd backend/media-service && uvicorn src.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        fromDatabase:
+          name: forkline-mongodb
+          property: connectionString
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+
+  # =====================================
+  # BOOKING SERVICE - Go
+  # =====================================
+  - type: web
+    name: forkline-booking-service
+    env: go
+    plan: starter
+    buildCommand: "cd backend/booking-service && go build -o bin/main ."
+    startCommand: "cd backend/booking-service && ./bin/main"
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        fromDatabase:
+          name: forkline-mongodb
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: forkline-redis
+          property: connectionString
+
+  # =====================================
+  # GEOLOCATION SERVICE - Go
+  # =====================================
+  - type: web
+    name: forkline-geolocation-service
+    env: go
+    plan: starter
+    buildCommand: "cd backend/geolocation-service && go build -o bin/main ."
+    startCommand: "cd backend/geolocation-service && ./bin/main"
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        fromDatabase:
+          name: forkline-mongodb
+          property: connectionString
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: forkline-redis
+          property: connectionString
+
+  # =====================================
+  # ORDER SERVICE - Java/Spring Boot
+  # =====================================
+  - type: web
+    name: forkline-order-service
+    env: java
+    plan: starter
+    buildCommand: "cd backend/order-service && ./mvnw clean package -DskipTests"
+    startCommand: "cd backend/order-service && java -jar target/*.jar"
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: SPRING_PROFILES_ACTIVE
+        value: "production"
+      - key: MONGODB_URI
+        fromDatabase:
+          name: forkline-mongodb
+          property: connectionString
+
+  # =====================================
+  # PAYMENT SERVICE - Node.js (Complex)
+  # =====================================
+  - type: web
+    name: forkline-payment-service
+    env: node
+    plan: starter
+    buildCommand: "cd backend/payment-service && npm install && npm run build"
+    startCommand: "cd backend/payment-service && npm start"
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: MONGODB_URI
+        fromDatabase:
+          name: forkline-mongodb
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: forkline-redis
+          property: connectionString
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+
+# =====================================
+# DATABASES
+# =====================================
+databases:
+  - name: forkline-mongodb
+    databaseName: forkline
+    user: forkline_user
+    plan: starter
+
+  - name: forkline-redis
+    plan: starter 

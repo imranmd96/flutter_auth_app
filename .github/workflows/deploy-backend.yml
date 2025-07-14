@@ -1,0 +1,316 @@
+name: 🚀 ForkLine Backend CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: 
+      - 'backend/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main ]
+    paths: 
+      - 'backend/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy to environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: forkline
+
+jobs:
+  # =====================================
+  # SECURITY & VALIDATION
+  # =====================================
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './backend'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # =====================================
+  # BUILD & TEST MATRIX
+  # =====================================
+  test-services:
+    name: 🧪 Test Services
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: 
+          - api-gateway
+          - auth-service
+          - user-service
+          - chat-service
+          - notification-service
+          - review-service
+        node-version: [18.x, 20.x]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: 'backend/${{ matrix.service }}/package.json'
+
+      - name: Install dependencies
+        run: |
+          cd backend/${{ matrix.service }}
+          if [ -f "package.json" ]; then
+            npm ci
+            npm run build --if-present
+            npm test --if-present
+          fi
+
+  test-python-services:
+    name: 🐍 Test Python Services  
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - restaurant-service
+          - menu-service
+          - analytics-service
+          - inventory-service
+          - search-service
+        python-version: [3.9, 3.11]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies & test
+        run: |
+          cd backend/${{ matrix.service }}
+          if [ -f "requirements.txt" ]; then
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+            pip install pytest pytest-cov --if-present
+            # Run tests if they exist
+            if [ -d "tests" ] || [ -f "test_*.py" ]; then
+              python -m pytest --if-present
+            fi
+          fi
+
+  test-go-services:
+    name: 🐹 Test Go Services
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - booking-service
+          - geolocation-service
+        go-version: [1.19, 1.21]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Test Go service
+        run: |
+          cd backend/${{ matrix.service }}
+          if [ -f "go.mod" ]; then
+            go mod download
+            go test ./... --if-present
+          fi
+
+  # =====================================
+  # BUILD DOCKER IMAGES
+  # =====================================
+  build-images:
+    name: 🐳 Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [security-scan, test-services, test-python-services, test-go-services]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - user-service
+          - restaurant-service
+          - booking-service
+          - chat-service
+          - notification-service
+          - review-service
+          - menu-service
+          - analytics-service
+          - inventory-service
+          - search-service
+          - geolocation-service
+          - payment-service
+          - media-service
+          - order-service
+    outputs:
+      image-tags: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/${{ matrix.service }}
+          file: ./backend/${{ matrix.service }}/Dockerfile.prod
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # =====================================
+  # DEPLOY TO STAGING
+  # =====================================
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment: staging
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Railway (Staging)
+        run: |
+          echo "🚂 Deploying to Railway staging environment..."
+          # Railway deployment will be configured separately
+          
+      - name: Deploy to Render (Staging)
+        run: |
+          echo "🎨 Deploying to Render staging environment..."
+          # Render deployment will be configured separately
+
+      - name: Update staging API documentation
+        run: |
+          echo "📚 Updating staging API documentation..."
+
+  # =====================================
+  # DEPLOY TO PRODUCTION  
+  # =====================================
+  deploy-production:
+    name: 🌟 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy core services to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "🚂 Deploying core services to Railway..."
+          # Core services: API Gateway, Auth, User
+          
+      - name: Deploy additional services to Render
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          echo "🎨 Deploying additional services to Render..."
+          # Additional services: Restaurant, Menu, etc.
+
+      - name: Deploy database services
+        run: |
+          echo "🗄️ Database services (MongoDB Atlas, Redis Cloud)..."
+
+      - name: Update production API documentation
+        run: |
+          echo "📚 Updating production API documentation..."
+          # Update swagger.yaml with production URLs
+
+      - name: Send deployment notification
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ job.status }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          text: "🚀 ForkLine backend deployment to production completed!"
+
+  # =====================================
+  # POST-DEPLOYMENT TESTS
+  # =====================================
+  integration-tests:
+    name: 🔄 Integration Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: always() && needs.deploy-staging.result == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        run: |
+          npm install -g newman
+          
+      - name: Run API tests
+        run: |
+          echo "🧪 Running integration tests against staging..."
+          # Run Postman collections or custom API tests
+          
+      - name: Performance tests
+        run: |
+          echo "⚡ Running performance tests..."
+          # Load testing with tools like Artillery or k6 
