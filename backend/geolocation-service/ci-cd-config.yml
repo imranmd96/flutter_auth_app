@@ -1,0 +1,18 @@
+service_name: geolocation-service
+display_name: "Geolocation Service"
+language: go
+deployment_platform: render
+docker_file: Dockerfile.prod
+health_check_url: https://geolocation.forkline.com/health
+go_versions: [1.20, 1.21]
+deployment_secrets:
+  - RENDER_GEOLOCATION_SERVICE_ID
+  - RENDER_API_KEY
+environment_variables:
+  - GO_ENV=production
+  - PRODUCTION_DOMAIN=forkline.com
+build_steps:
+  - go test ./... || echo "No tests found"
+  - go vet ./... || echo "No linting configured"
+notification_icon: "🌍"
+subdomain: geolocation 

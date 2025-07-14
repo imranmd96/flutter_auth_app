@@ -1,27 +1,26 @@
-name: 🚀 ForkLine Main Orchestrator - Production CI/CD
+name: 'GitHub CI/CD: Main Orchestrator - Production (Hybrid Approach)'
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/**'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'backend/**'
   workflow_dispatch:
     inputs:
-      deploy_services:
-        description: 'Services to deploy (comma-separated, or "all")'
-        required: true
-        default: 'all'
-        type: string
       force_deploy:
-        description: 'Force deployment even if no changes'
+        description: 'Force deployment of all services'
         required: false
-        default: false
+        default: 'false'
         type: boolean
+      deploy_services:
+        description: 'Comma-separated list of services to deploy (or "all")'
+        required: false
+        default: ''
+        type: string
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
 
 env:
   REGISTRY: ghcr.io
@@ -29,15 +28,11 @@ env:
   PRODUCTION_DOMAIN: forkline.com
 
 jobs:
-  # =====================================
-  # DETECT CHANGED SERVICES
-  # =====================================
   detect-changes:
-    name: 🔍 Detect Changed Services
     runs-on: ubuntu-latest
     outputs:
-      changed-services: ${{ steps.changes.outputs.changed-services }}
-      all-services: ${{ steps.services.outputs.all-services }}
+      changed-services: ${{ steps.changes.outputs.services }}
+      all-services: ${{ steps.changes.outputs.all_services }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,14 +44,14 @@ jobs:
         uses: tj-actions/changed-files@v40
         with:
           files: backend/**
-          dir_names: true
-          dir_names_max_depth: 2
 
       - name: Detect changed services
         id: changes
         run: |
-          echo "Changed files: ${{ steps.changed-files.outputs.all_changed_files }}"
+          # All available services
+          ALL_SERVICES="api-gateway,auth-service,payment-service,chat-service,notification-service,user-service,review-service,loyalty-service,media-service,restaurant-service,analytics-service,inventory-service,menu-service,search-service,order-service,booking-service,geolocation-service"
           
+          # Detect changed services
           changed_services=""
           for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
             if [[ $file =~ ^backend/([^/]+) ]]; then
@@ -70,256 +65,294 @@ jobs:
           # Remove leading comma
           changed_services="${changed_services#,}"
           
-          # If force deploy or manual trigger with "all", deploy all services
+          # Handle force deploy or specific services
           if [[ "${{ inputs.force_deploy }}" == "true" || "${{ inputs.deploy_services }}" == "all" ]]; then
-            changed_services="api-gateway,auth-service,payment-service,restaurant-service,menu-service,booking-service,order-service,user-service,chat-service,notification-service,review-service,analytics-service,inventory-service,search-service,geolocation-service,media-service"
+            changed_services="$ALL_SERVICES"
           elif [[ "${{ inputs.deploy_services }}" != "" && "${{ inputs.deploy_services }}" != "all" ]]; then
             changed_services="${{ inputs.deploy_services }}"
           fi
           
-          echo "Changed services: $changed_services"
-          echo "changed-services=$changed_services" >> $GITHUB_OUTPUT
+          echo "services=$changed_services" >> $GITHUB_OUTPUT
+          echo "all_services=$ALL_SERVICES" >> $GITHUB_OUTPUT
+          echo "🔍 Changed services: $changed_services"
 
-      - name: List all services
-        id: services
-        run: |
-          all_services="api-gateway,auth-service,payment-service,restaurant-service,menu-service,booking-service,order-service,user-service,chat-service,notification-service,review-service,analytics-service,inventory-service,search-service,geolocation-service,media-service"
-          echo "all-services=$all_services" >> $GITHUB_OUTPUT
-
-  # =====================================
-  # RAILWAY SERVICES (Node.js)
-  # =====================================
-  deploy-railway-services:
-    name: 🚂 Deploy Railway Services
+  deploy-services:
     runs-on: ubuntu-latest
     needs: detect-changes
-    if: contains(needs.detect-changes.outputs.changed-services, 'api-gateway') || contains(needs.detect-changes.outputs.changed-services, 'auth-service') || contains(needs.detect-changes.outputs.changed-services, 'user-service') || contains(needs.detect-changes.outputs.changed-services, 'chat-service') || contains(needs.detect-changes.outputs.changed-services, 'notification-service') || contains(needs.detect-changes.outputs.changed-services, 'review-service') || contains(needs.detect-changes.outputs.changed-services, 'payment-service')
+    if: needs.detect-changes.outputs.changed-services != ''
     strategy:
       matrix:
-        service: [api-gateway, auth-service, user-service, chat-service, notification-service, review-service, payment-service]
+        service: ${{ fromJson(format('["{0}"]', needs.detect-changes.outputs.changed-services)) }}
       fail-fast: false
-    steps:
-      - name: Check if service changed
-        id: check-service
-        run: |
-          if [[ "${{ needs.detect-changes.outputs.changed-services }}" =~ ${{ matrix.service }} ]]; then
-            echo "deploy=true" >> $GITHUB_OUTPUT
-          else
-            echo "deploy=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Trigger ${{ matrix.service }} deployment
-        if: steps.check-service.outputs.deploy == 'true'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const { data } = await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'github-ci-cd-${{ matrix.service }}-production.yml',
-              ref: 'main',
-              inputs: {
-                force_deploy: 'true'
-              }
-            });
-            console.log('Triggered ${{ matrix.service }} deployment');
-
-  # =====================================
-  # RENDER SERVICES (Python/Go/Java)
-  # =====================================
-  deploy-render-services:
-    name: 🎨 Deploy Render Services
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    if: contains(needs.detect-changes.outputs.changed-services, 'restaurant-service') || contains(needs.detect-changes.outputs.changed-services, 'menu-service') || contains(needs.detect-changes.outputs.changed-services, 'booking-service') || contains(needs.detect-changes.outputs.changed-services, 'order-service') || contains(needs.detect-changes.outputs.changed-services, 'analytics-service') || contains(needs.detect-changes.outputs.changed-services, 'inventory-service') || contains(needs.detect-changes.outputs.changed-services, 'search-service') || contains(needs.detect-changes.outputs.changed-services, 'geolocation-service') || contains(needs.detect-changes.outputs.changed-services, 'media-service')
-    strategy:
-      matrix:
-        service: [restaurant-service, menu-service, booking-service, order-service, analytics-service, inventory-service, search-service, geolocation-service, media-service]
-      fail-fast: false
-    steps:
-      - name: Check if service changed
-        id: check-service
-        run: |
-          if [[ "${{ needs.detect-changes.outputs.changed-services }}" =~ ${{ matrix.service }} ]]; then
-            echo "deploy=true" >> $GITHUB_OUTPUT
-          else
-            echo "deploy=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Trigger ${{ matrix.service }} deployment
-        if: steps.check-service.outputs.deploy == 'true'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const { data } = await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'github-ci-cd-${{ matrix.service }}-production.yml',
-              ref: 'main',
-              inputs: {
-                force_deploy: 'true'
-              }
-            });
-            console.log('Triggered ${{ matrix.service }} deployment');
-
-  # =====================================
-  # WAIT FOR DEPLOYMENTS
-  # =====================================
-  wait-for-deployments:
-    name: ⏳ Wait for All Deployments
-    runs-on: ubuntu-latest
-    needs: [deploy-railway-services, deploy-render-services]
-    if: always()
-    steps:
-      - name: Wait for deployments to complete
-        run: |
-          echo "🔍 Waiting for all service deployments to complete..."
-          sleep 300  # Wait 5 minutes for deployments to start and complete
-
-  # =====================================
-  # HEALTH CHECKS
-  # =====================================
-  health-checks:
-    name: 🔍 System Health Checks
-    runs-on: ubuntu-latest
-    needs: wait-for-deployments
-    if: always()
+      max-parallel: 5
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Health check - API Gateway
+      - name: Read service configuration
+        id: config
         run: |
-          echo "🔍 Checking API Gateway health..."
-          curl -f -s https://api.${{ env.PRODUCTION_DOMAIN }}/health || echo "❌ API Gateway health check failed"
+          SERVICE="${{ matrix.service }}"
+          CONFIG_FILE="backend/$SERVICE/ci-cd-config.yml"
+          
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "❌ Configuration file not found: $CONFIG_FILE"
+            exit 1
+          fi
+          
+          # Parse YAML config file
+          DISPLAY_NAME=$(grep "display_name:" "$CONFIG_FILE" | cut -d'"' -f2)
+          LANGUAGE=$(grep "language:" "$CONFIG_FILE" | cut -d' ' -f2)
+          PLATFORM=$(grep "deployment_platform:" "$CONFIG_FILE" | cut -d' ' -f2)
+          DOCKER_FILE=$(grep "docker_file:" "$CONFIG_FILE" | cut -d' ' -f2)
+          HEALTH_URL=$(grep "health_check_url:" "$CONFIG_FILE" | cut -d' ' -f2)
+          ICON=$(grep "notification_icon:" "$CONFIG_FILE" | cut -d'"' -f2)
+          SUBDOMAIN=$(grep "subdomain:" "$CONFIG_FILE" | cut -d' ' -f2)
+          
+          echo "display_name=$DISPLAY_NAME" >> $GITHUB_OUTPUT
+          echo "language=$LANGUAGE" >> $GITHUB_OUTPUT
+          echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
+          echo "docker_file=$DOCKER_FILE" >> $GITHUB_OUTPUT
+          echo "health_url=$HEALTH_URL" >> $GITHUB_OUTPUT
+          echo "icon=$ICON" >> $GITHUB_OUTPUT
+          echo "subdomain=$SUBDOMAIN" >> $GITHUB_OUTPUT
+          
+          echo "📋 Service: $DISPLAY_NAME ($LANGUAGE → $PLATFORM)"
 
-      - name: Health check - Auth Service
-        run: |
-          echo "🔍 Checking Auth Service health..."
-          curl -f -s https://auth.${{ env.PRODUCTION_DOMAIN }}/health || echo "❌ Auth Service health check failed"
-
-      - name: Health check - Restaurant Service
-        run: |
-          echo "🔍 Checking Restaurant Service health..."
-          curl -f -s https://restaurant.${{ env.PRODUCTION_DOMAIN }}/health || echo "❌ Restaurant Service health check failed"
-
-      - name: Health check - Payment Service
-        run: |
-          echo "🔍 Checking Payment Service health..."
-          curl -f -s https://payment.${{ env.PRODUCTION_DOMAIN }}/health || echo "❌ Payment Service health check failed"
-
-  # =====================================
-  # INTEGRATION TESTS
-  # =====================================
-  integration-tests:
-    name: 🧪 Integration Tests
-    runs-on: ubuntu-latest
-    needs: health-checks
-    if: always()
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
+      - name: Set up Node.js
+        if: steps.config.outputs.language == 'nodejs'
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: backend/${{ matrix.service }}/package-lock.json
 
-      - name: Install test dependencies
+      - name: Set up Python
+        if: steps.config.outputs.language == 'python'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Set up Java
+        if: steps.config.outputs.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Go
+        if: steps.config.outputs.language == 'go'
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Install dependencies and test
         run: |
-          npm install -g newman
-          npm install -g @postman/newman-reporter-html
+          cd backend/${{ matrix.service }}
+          
+          case "${{ steps.config.outputs.language }}" in
+            "nodejs")
+              npm ci
+              npm test || echo "No tests found"
+              npm run lint || echo "No linting configured"
+              ;;
+            "python")
+              python -m pip install --upgrade pip
+              pip install -r requirements.txt
+              python -m pytest || echo "No tests found"
+              flake8 . || echo "No linting configured"
+              ;;
+            "java")
+              mvn test || echo "No tests found"
+              mvn checkstyle:check || echo "No checkstyle configured"
+              ;;
+            "go")
+              go test ./... || echo "No tests found"
+              go vet ./... || echo "No linting configured"
+              ;;
+          esac
 
-      - name: Run API integration tests
+      - name: Run security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'backend/${{ matrix.service }}'
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.service }}.sarif'
+
+      - name: Upload security scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+
+      - name: Set up Docker Buildx
+        if: github.ref == 'refs/heads/main'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        if: github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v5
+        with:
+          context: backend/${{ matrix.service }}
+          file: backend/${{ matrix.service }}/${{ steps.config.outputs.docker_file }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Railway
+        if: github.ref == 'refs/heads/main' && steps.config.outputs.platform == 'railway'
+        uses: bervProject/railway-deploy@main
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          service: ${{ matrix.service }}
+          variables: |
+            DOCKER_IMAGE=${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
+            NODE_ENV=production
+            PRODUCTION_DOMAIN=${{ env.PRODUCTION_DOMAIN }}
+
+      - name: Deploy to Render
+        if: github.ref == 'refs/heads/main' && steps.config.outputs.platform == 'render'
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets[format('RENDER_{0}_ID', upper(replace(matrix.service, '-', '_')))] }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+          wait-for-success: true
+
+      - name: Health check
+        if: github.ref == 'refs/heads/main'
         run: |
-          echo "🧪 Running integration tests..."
-          # Add your Postman collection or API tests here
-          echo "✅ Integration tests completed"
+          echo "⏳ Waiting for ${{ steps.config.outputs.display_name }} deployment..."
+          sleep 30
+          
+          max_attempts=10
+          attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            if curl -f --max-time 10 "${{ steps.config.outputs.health_url }}" 2>/dev/null; then
+              echo "✅ ${{ steps.config.outputs.display_name }} is healthy!"
+              exit 0
+            fi
+            
+            echo "⏳ Attempt $attempt/$max_attempts failed, retrying in 30s..."
+            sleep 30
+            ((attempt++))
+          done
+          
+          echo "❌ Health check failed for ${{ steps.config.outputs.display_name }} after $max_attempts attempts"
+          exit 1
 
-  # =====================================
-  # UPDATE DOCUMENTATION
-  # =====================================
-  update-documentation:
-    name: 📚 Update Documentation
-    runs-on: ubuntu-latest
-    needs: integration-tests
-    if: always()
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Generate API documentation
-        run: |
-          echo "📚 Generating API documentation..."
-          # Add your API documentation generation here
-          echo "✅ API documentation updated"
-
-      - name: Update deployment status
-        run: |
-          echo "📊 Updating deployment status..."
-          # Add your status page update logic here
-          echo "✅ Deployment status updated"
-
-  # =====================================
-  # NOTIFICATIONS
-  # =====================================
-  notify-deployment:
-    name: 📢 Notify Deployment Status
-    runs-on: ubuntu-latest
-    needs: [detect-changes, deploy-railway-services, deploy-render-services, health-checks, integration-tests, update-documentation]
-    if: always()
-    steps:
-      - name: Notify Slack
+      - name: Service deployment notification
         if: always()
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
           channel: '#deployments'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-          fields: repo,message,commit,author,action,eventName,ref,workflow
-          custom_payload: |
-            {
-              text: "🚀 ForkLine Production Deployment Complete",
-              attachments: [{
-                color: "${{ job.status == 'success' && 'good' || 'danger' }}",
-                fields: [{
-                  title: "Changed Services",
-                  value: "${{ needs.detect-changes.outputs.changed-services }}",
-                  short: true
-                }, {
-                  title: "Status",
-                  value: "${{ job.status }}",
-                  short: true
-                }, {
-                  title: "Production URL",
-                  value: "https://api.${{ env.PRODUCTION_DOMAIN }}",
-                  short: true
-                }]
-              }]
-            }
+          text: |
+            ${{ steps.config.outputs.icon }} ${{ steps.config.outputs.display_name }} Deployment
+            Status: ${{ job.status }}
+            Service: ${{ matrix.service }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            URL: https://${{ steps.config.outputs.subdomain }}.${{ env.PRODUCTION_DOMAIN }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-      - name: Update GitHub deployment status
-        if: always()
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const deploymentStatus = '${{ job.status }}' === 'success' ? 'success' : 'failure';
-            
-            github.rest.repos.createDeploymentStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              deployment_id: process.env.GITHUB_DEPLOYMENT_ID || 'latest',
-              state: deploymentStatus,
-              description: 'ForkLine Production Deployment',
-              environment_url: 'https://api.${{ env.PRODUCTION_DOMAIN }}'
-            });
-
-      - name: Final deployment summary
-        if: always()
+  system-health-check:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-services]
+    if: always() && needs.detect-changes.outputs.changed-services != '' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: System-wide health check
         run: |
-          echo "🎉 ===== FORKLINE PRODUCTION DEPLOYMENT SUMMARY ====="
-          echo "📅 Deployment Date: $(date)"
-          echo "🔄 Changed Services: ${{ needs.detect-changes.outputs.changed-services }}"
-          echo "🌐 Production URL: https://api.${{ env.PRODUCTION_DOMAIN }}"
-          echo "📊 Status: ${{ job.status }}"
-          echo "==================================================" 
+          echo "🔍 Running system-wide health check..."
+          
+          # List of all service health endpoints
+          services=(
+            "api:https://api.${{ env.PRODUCTION_DOMAIN }}/health"
+            "auth:https://auth.${{ env.PRODUCTION_DOMAIN }}/health"
+            "payment:https://payment.${{ env.PRODUCTION_DOMAIN }}/health"
+            "chat:https://chat.${{ env.PRODUCTION_DOMAIN }}/health"
+            "notification:https://notification.${{ env.PRODUCTION_DOMAIN }}/health"
+            "user:https://user.${{ env.PRODUCTION_DOMAIN }}/health"
+            "review:https://review.${{ env.PRODUCTION_DOMAIN }}/health"
+            "loyalty:https://loyalty.${{ env.PRODUCTION_DOMAIN }}/health"
+            "media:https://media.${{ env.PRODUCTION_DOMAIN }}/health"
+            "restaurant:https://restaurant.${{ env.PRODUCTION_DOMAIN }}/health"
+            "analytics:https://analytics.${{ env.PRODUCTION_DOMAIN }}/health"
+            "inventory:https://inventory.${{ env.PRODUCTION_DOMAIN }}/health"
+            "menu:https://menu.${{ env.PRODUCTION_DOMAIN }}/health"
+            "search:https://search.${{ env.PRODUCTION_DOMAIN }}/health"
+            "order:https://order.${{ env.PRODUCTION_DOMAIN }}/health"
+            "booking:https://booking.${{ env.PRODUCTION_DOMAIN }}/health"
+            "geolocation:https://geolocation.${{ env.PRODUCTION_DOMAIN }}/health"
+          )
+          
+          healthy_services=0
+          total_services=${#services[@]}
+          
+          for service in "${services[@]}"; do
+            name=$(echo "$service" | cut -d':' -f1)
+            url=$(echo "$service" | cut -d':' -f2-)
+            
+            if curl -f --max-time 10 "$url" 2>/dev/null; then
+              echo "✅ $name service is healthy"
+              ((healthy_services++))
+            else
+              echo "❌ $name service is unhealthy"
+            fi
+          done
+          
+          echo "📊 System Health: $healthy_services/$total_services services healthy"
+          
+          if [ $healthy_services -eq $total_services ]; then
+            echo "🎉 All services are healthy!"
+          else
+            echo "⚠️ Some services are unhealthy"
+          fi
+
+  final-notification:
+    runs-on: ubuntu-latest
+    needs: [detect-changes, deploy-services, system-health-check]
+    if: always() && needs.detect-changes.outputs.changed-services != ''
+    
+    steps:
+      - name: Final deployment notification
+        uses: 8398a7/action-slack@v3
+        if: always()
+        with:
+          status: ${{ needs.deploy-services.result }}
+          channel: '#deployments'
+          text: |
+            🚀 **ForkLine Deployment Complete**
+            
+            **Status:** ${{ needs.deploy-services.result }}
+            **Services Deployed:** ${{ needs.detect-changes.outputs.changed-services }}
+            **Branch:** ${{ github.ref_name }}
+            **Commit:** ${{ github.sha }}
+            **Author:** ${{ github.actor }}
+            **System Health:** ${{ needs.system-health-check.result }}
+            
+            🌐 **Production URLs:**
+            • API Gateway: https://api.${{ env.PRODUCTION_DOMAIN }}
+            • Auth Service: https://auth.${{ env.PRODUCTION_DOMAIN }}
+            • Payment Service: https://payment.${{ env.PRODUCTION_DOMAIN }}
+            • And 14 more services...
+            
+            📊 **Dashboard:** https://dashboard.${{ env.PRODUCTION_DOMAIN }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 

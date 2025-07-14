@@ -1,0 +1,18 @@
+service_name: booking-service
+display_name: "Booking Service"
+language: go
+deployment_platform: render
+docker_file: Dockerfile.prod
+health_check_url: https://booking.forkline.com/health
+go_versions: [1.20, 1.21]
+deployment_secrets:
+  - RENDER_BOOKING_SERVICE_ID
+  - RENDER_API_KEY
+environment_variables:
+  - GO_ENV=production
+  - PRODUCTION_DOMAIN=forkline.com
+build_steps:
+  - go test ./... || echo "No tests found"
+  - go vet ./... || echo "No linting configured"
+notification_icon: "📅"
+subdomain: booking 

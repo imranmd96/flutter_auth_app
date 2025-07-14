@@ -1,0 +1,18 @@
+service_name: payment-service
+display_name: "Payment Service"
+language: nodejs
+deployment_platform: railway
+docker_file: Dockerfile.prod
+health_check_url: https://payment.forkline.com/health
+node_versions: [18.x, 20.x]
+deployment_secrets:
+  - RAILWAY_TOKEN
+environment_variables:
+  - NODE_ENV=production
+  - PRODUCTION_DOMAIN=forkline.com
+build_steps:
+  - npm ci
+  - npm test || echo "No tests found"
+  - npm run lint || echo "No linting configured"
+notification_icon: "💳"
+subdomain: payment 

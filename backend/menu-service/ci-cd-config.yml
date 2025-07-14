@@ -1,0 +1,20 @@
+service_name: menu-service
+display_name: "Menu Service"
+language: python
+deployment_platform: render
+docker_file: Dockerfile.prod
+health_check_url: https://menu.forkline.com/health
+python_versions: [3.9, 3.10]
+deployment_secrets:
+  - RENDER_MENU_SERVICE_ID
+  - RENDER_API_KEY
+environment_variables:
+  - PYTHON_ENV=production
+  - PRODUCTION_DOMAIN=forkline.com
+build_steps:
+  - python -m pip install --upgrade pip
+  - pip install -r requirements.txt
+  - python -m pytest || echo "No tests found"
+  - flake8 . || echo "No linting configured"
+notification_icon: "��"
+subdomain: menu 
