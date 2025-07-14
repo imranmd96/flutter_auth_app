@@ -1,0 +1,28 @@
+{
+  "name": "my_flutter_app",
+  "version": "1.0.0",
+  "main": "server.js",
+  "directories": {
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imranmd96/flutter_auth_app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/imranmd96/flutter_auth_app/issues"
+  },
+  "homepage": "https://github.com/imranmd96/flutter_auth_app#readme",
+  "description": "",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
