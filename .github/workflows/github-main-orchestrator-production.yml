@@ -285,7 +285,78 @@ jobs:
         if: github.ref == 'refs/heads/main' && steps.config.outputs.platform == 'render'
         run: |
           echo "🚀 Deploying to Render..."
-          SERVICE_ID=${{ secrets[format('RENDER_{0}_ID', upper(replace(matrix.service, '-', '_')))] }}
+          
+          # Convert service name to uppercase and replace hyphens with underscores
+          SERVICE_NAME="${{ matrix.service }}"
+          SECRET_NAME="RENDER_$(echo "$SERVICE_NAME" | tr '[:lower:]' '[:upper:]' | tr '-' '_')_ID"
+          
+          # Get the service ID from environment variables
+          case "$SERVICE_NAME" in
+            "auth-service")
+              SERVICE_ID="${{ secrets.RENDER_AUTH_SERVICE_ID }}"
+              ;;
+            "payment-service")
+              SERVICE_ID="${{ secrets.RENDER_PAYMENT_SERVICE_ID }}"
+              ;;
+            "api-gateway")
+              SERVICE_ID="${{ secrets.RENDER_API_GATEWAY_ID }}"
+              ;;
+            "chat-service")
+              SERVICE_ID="${{ secrets.RENDER_CHAT_SERVICE_ID }}"
+              ;;
+            "notification-service")
+              SERVICE_ID="${{ secrets.RENDER_NOTIFICATION_SERVICE_ID }}"
+              ;;
+            "user-service")
+              SERVICE_ID="${{ secrets.RENDER_USER_SERVICE_ID }}"
+              ;;
+            "review-service")
+              SERVICE_ID="${{ secrets.RENDER_REVIEW_SERVICE_ID }}"
+              ;;
+            "loyalty-service")
+              SERVICE_ID="${{ secrets.RENDER_LOYALTY_SERVICE_ID }}"
+              ;;
+            "media-service")
+              SERVICE_ID="${{ secrets.RENDER_MEDIA_SERVICE_ID }}"
+              ;;
+            "restaurant-service")
+              SERVICE_ID="${{ secrets.RENDER_RESTAURANT_SERVICE_ID }}"
+              ;;
+            "analytics-service")
+              SERVICE_ID="${{ secrets.RENDER_ANALYTICS_SERVICE_ID }}"
+              ;;
+            "inventory-service")
+              SERVICE_ID="${{ secrets.RENDER_INVENTORY_SERVICE_ID }}"
+              ;;
+            "menu-service")
+              SERVICE_ID="${{ secrets.RENDER_MENU_SERVICE_ID }}"
+              ;;
+            "search-service")
+              SERVICE_ID="${{ secrets.RENDER_SEARCH_SERVICE_ID }}"
+              ;;
+            "order-service")
+              SERVICE_ID="${{ secrets.RENDER_ORDER_SERVICE_ID }}"
+              ;;
+            "booking-service")
+              SERVICE_ID="${{ secrets.RENDER_BOOKING_SERVICE_ID }}"
+              ;;
+            "geolocation-service")
+              SERVICE_ID="${{ secrets.RENDER_GEOLOCATION_SERVICE_ID }}"
+              ;;
+            *)
+              echo "❌ Unknown service: $SERVICE_NAME"
+              exit 1
+              ;;
+          esac
+          
+          if [ -z "$SERVICE_ID" ]; then
+            echo "❌ Service ID not found for $SERVICE_NAME. Please configure the secret: $SECRET_NAME"
+            exit 1
+          fi
+          
+          echo "📡 Deploying $SERVICE_NAME to Render (ID: $SERVICE_ID)"
+          
+          # Deploy to Render using API
           curl -X POST \
             -H "Accept: application/json" \
             -H "Content-Type: application/json" \
