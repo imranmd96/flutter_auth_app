@@ -76,21 +76,18 @@ deploy_to_railway() {
     # Create or connect to project
     if [ ! -f ".railway/project.json" ]; then
         echo -e "${YELLOW}Creating new Railway project...${NC}"
-        railway create "$PROJECT_NAME"
+        railway link "$PROJECT_NAME"
     fi
     
     # Deploy services
-    local services=("api-gateway" "auth-service" "user-service" "chat-service" "notification-service" "review-service")
+    local services=("api-gateway" "auth-service" "user-service" "chat-service" "notification-service" "review-service" "payment-service")
     
     for service in "${services[@]}"; do
         echo -e "${YELLOW}Deploying $service to Railway...${NC}"
         
-        # Create service
-        railway service create "$service" --project "$PROJECT_NAME" || true
-        
         # Deploy from specific directory
         cd "backend/$service"
-        railway deploy --service "$service"
+        railway up --detach
         cd ../..
         
         echo -e "${GREEN}✅ $service deployed successfully${NC}"

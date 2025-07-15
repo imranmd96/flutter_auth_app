@@ -119,6 +119,40 @@ REDIS_URL = "$REDIS_URL"
 JWT_SECRET = "$JWT_SECRET"
 
 # =====================================
+# PAYMENT SERVICE - Payment Processing
+# =====================================
+[services.payment-service]
+name = "forkline-payment-service"
+source = "backend/payment-service"
+build = "npm install && npm run build"
+start = "npm start"
+healthcheck = "/health"
+
+[services.payment-service.variables]
+NODE_ENV = "production"
+PORT = "3008"
+MONGODB_URI = "$MONGODB_URI"
+REDIS_URL = "$REDIS_URL"
+JWT_SECRET = "$JWT_SECRET"
+STRIPE_SECRET_KEY = "$STRIPE_SECRET_KEY"
+STRIPE_WEBHOOK_SECRET = "$STRIPE_WEBHOOK_SECRET"
+APPLE_PAY_MERCHANT_ID = "$APPLE_PAY_MERCHANT_ID"
+APPLE_PAY_MERCHANT_CERTIFICATE = "$APPLE_PAY_MERCHANT_CERTIFICATE"
+APPLE_PAY_MERCHANT_PRIVATE_KEY = "$APPLE_PAY_MERCHANT_PRIVATE_KEY"
+APPLE_PAY_ENVIRONMENT = "PRODUCTION"
+GOOGLE_PAY_MERCHANT_ID = "$GOOGLE_PAY_MERCHANT_ID"
+GOOGLE_PAY_API_KEY = "$GOOGLE_PAY_API_KEY"
+GOOGLE_PAY_ENVIRONMENT = "PRODUCTION"
+GOOGLE_CLIENT_ID = "$GOOGLE_CLIENT_ID"
+GOOGLE_CLIENT_SECRET = "$GOOGLE_CLIENT_SECRET"
+GOOGLE_REDIRECT_URI = "$GOOGLE_REDIRECT_URI"
+ALLOWED_ORIGINS = "https://forkline.com,https://api.forkline.com"
+
+[services.payment-service.domains]
+production = "payment.forkline.com"
+staging = "staging-payment.forkline.com"
+
+# =====================================
 # DATABASES - External Services
 # =====================================
 [services.redis]

@@ -306,9 +306,11 @@ jobs:
           npm install -g @railway/cli
           echo "✅ Railway CLI installed successfully"
           echo "🔐 Authenticating with Railway..."
-          railway whoami || echo "Authentication successful"
+          railway login
+          echo "Authentication successful"
           echo "🚀 Deploying service: ${{ matrix.service }}"
-          railway up --service ${{ matrix.service }} || railway deploy --service ${{ matrix.service }}
+          cd backend/${{ matrix.service }}
+          railway up --detach
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           DOCKER_IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}
