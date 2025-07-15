@@ -1,13 +1,12 @@
 service_name: order-service
 display_name: "Order Service"
 language: java
-deployment_platform: render
+deployment_platform: railway
 docker_file: Dockerfile.prod
 health_check_url: https://order.forkline.com/health
 java_versions: [17, 21]
 deployment_secrets:
-  - RENDER_ORDER_SERVICE_ID
-  - RENDER_API_KEY
+  - RAILWAY_TOKEN
 environment_variables:
   - JAVA_ENV=production
   - PRODUCTION_DOMAIN=forkline.com

@@ -1,13 +1,12 @@
 service_name: booking-service
 display_name: "Booking Service"
 language: go
-deployment_platform: render
+deployment_platform: railway
 docker_file: Dockerfile.prod
 health_check_url: https://booking.forkline.com/health
 go_versions: [1.20, 1.21]
 deployment_secrets:
-  - RENDER_BOOKING_SERVICE_ID
-  - RENDER_API_KEY
+  - RAILWAY_TOKEN
 environment_variables:
   - GO_ENV=production
   - PRODUCTION_DOMAIN=forkline.com

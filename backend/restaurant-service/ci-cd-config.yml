@@ -1,13 +1,12 @@
 service_name: restaurant-service
 display_name: "Restaurant Service"
 language: python
-deployment_platform: render
+deployment_platform: railway
 docker_file: Dockerfile.prod
 health_check_url: https://restaurant.forkline.com/health
 python_versions: [3.9, 3.10]
 deployment_secrets:
-  - RENDER_RESTAURANT_SERVICE_ID
-  - RENDER_API_KEY
+  - RAILWAY_TOKEN
 environment_variables:
   - PYTHON_ENV=production
   - PRODUCTION_DOMAIN=forkline.com

@@ -1,13 +1,12 @@
 service_name: analytics-service
 display_name: "Analytics Service"
 language: python
-deployment_platform: render
+deployment_platform: railway
 docker_file: Dockerfile.prod
 health_check_url: https://analytics.forkline.com/health
 python_versions: [3.9, 3.10]
 deployment_secrets:
-  - RENDER_ANALYTICS_SERVICE_ID
-  - RENDER_API_KEY
+  - RAILWAY_TOKEN
 environment_variables:
   - PYTHON_ENV=production
   - PRODUCTION_DOMAIN=forkline.com
