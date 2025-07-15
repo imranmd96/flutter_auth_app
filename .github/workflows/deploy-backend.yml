@@ -148,8 +148,6 @@ jobs:
   test-go-services:
     name: 🧪 Test Go Services
     runs-on: ubuntu-latest
-    if: needs.detect-changes.outputs.changed-services != '' && contains(needs.detect-changes.outputs.changed-services, 'geolocation-service')
-    needs: detect-changes
     strategy:
       matrix:
         service: ['geolocation-service']
