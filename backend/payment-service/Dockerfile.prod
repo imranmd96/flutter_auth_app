@@ -16,6 +16,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Create empty .env.production file if it doesn't exist (for compatibility)
+RUN touch .env.production
+
 # Build TypeScript code
 RUN npm run build
 
@@ -43,7 +46,11 @@ RUN npm ci --only=production && \
     npm cache clean --force
 
 # Copy built files from builder stage
+# Note: Environment variables should be provided by container runtime
 COPY --from=builder /app/dist ./dist
+
+# Create empty .env file if it doesn't exist (for compatibility)
+RUN touch .env
 
 # Create non-root user with specific UID/GID
 RUN addgroup -g 1001 -S nodejs && \
