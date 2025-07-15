@@ -81,7 +81,7 @@ export const rateLimit = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const clientIp = req.ip;
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
     await rateLimiter.consume(clientIp);
     next();
   } catch (error) {

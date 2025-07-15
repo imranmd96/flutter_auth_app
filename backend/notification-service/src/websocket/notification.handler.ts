@@ -96,13 +96,14 @@ export class NotificationWebSocket {
 
   private startHeartbeat(): void {
     const interval = setInterval(() => {
-      this.wss.clients.forEach((ws: WebSocketClient) => {
-        if (!ws.isAlive) {
-          this.handleDisconnection(ws);
-          return ws.terminate();
+      this.wss.clients.forEach((ws: WebSocket) => {
+        const client = ws as WebSocketClient;
+        if (!client.isAlive) {
+          this.handleDisconnection(client);
+          return client.terminate();
         }
-        ws.isAlive = false;
-        ws.ping();
+        client.isAlive = false;
+        client.ping();
       });
     }, Number(process.env.WS_HEARTBEAT_INTERVAL) || 30000);
 
@@ -111,7 +112,7 @@ export class NotificationWebSocket {
     });
   }
 
-  public async broadcastNotification(notification: Notification): Promise<void> {
+  public async broadcastNotification(notification: InstanceType<typeof Notification>): Promise<void> {
     const userClients = this.clients.get(notification.recipient.id);
     if (!userClients) return;
 
@@ -120,7 +121,7 @@ export class NotificationWebSocket {
       data: notification
     });
 
-    userClients.forEach(client => {
+    userClients.forEach((client: WebSocketClient) => {
       if (client.readyState === WebSocket.OPEN) {
         client.send(message);
       }
@@ -129,7 +130,8 @@ export class NotificationWebSocket {
 
   public async broadcastToAll(message: any): Promise<void> {
     const messageStr = JSON.stringify(message);
-    this.wss.clients.forEach((client: WebSocketClient) => {
+    this.wss.clients.forEach((ws: WebSocket) => {
+      const client = ws as WebSocketClient;
       if (client.readyState === WebSocket.OPEN) {
         client.send(messageStr);
       }

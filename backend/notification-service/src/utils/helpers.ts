@@ -32,33 +32,61 @@ export const getNotificationPriority = (
       [NotificationChannel.IN_APP]: NotificationPriority.MEDIUM,
       [NotificationChannel.WEB]: NotificationPriority.MEDIUM,
     },
-    [NotificationType.PAYMENT]: {
-      [NotificationChannel.EMAIL]: NotificationPriority.HIGH,
-      [NotificationChannel.SMS]: NotificationPriority.HIGH,
-      [NotificationChannel.PUSH]: NotificationPriority.HIGH,
-      [NotificationChannel.IN_APP]: NotificationPriority.HIGH,
-      [NotificationChannel.WEB]: NotificationPriority.HIGH,
-    },
-    [NotificationType.BOOKING]: {
+    [NotificationType.BOOKING_CONFIRMATION]: {
       [NotificationChannel.EMAIL]: NotificationPriority.MEDIUM,
       [NotificationChannel.SMS]: NotificationPriority.MEDIUM,
       [NotificationChannel.PUSH]: NotificationPriority.MEDIUM,
       [NotificationChannel.IN_APP]: NotificationPriority.MEDIUM,
       [NotificationChannel.WEB]: NotificationPriority.MEDIUM,
     },
-    [NotificationType.PROMOTION]: {
+    [NotificationType.PAYMENT_CONFIRMATION]: {
+      [NotificationChannel.EMAIL]: NotificationPriority.HIGH,
+      [NotificationChannel.SMS]: NotificationPriority.HIGH,
+      [NotificationChannel.PUSH]: NotificationPriority.HIGH,
+      [NotificationChannel.IN_APP]: NotificationPriority.HIGH,
+      [NotificationChannel.WEB]: NotificationPriority.HIGH,
+    },
+    [NotificationType.RESERVATION_CHANGE]: {
+      [NotificationChannel.EMAIL]: NotificationPriority.MEDIUM,
+      [NotificationChannel.SMS]: NotificationPriority.MEDIUM,
+      [NotificationChannel.PUSH]: NotificationPriority.MEDIUM,
+      [NotificationChannel.IN_APP]: NotificationPriority.MEDIUM,
+      [NotificationChannel.WEB]: NotificationPriority.MEDIUM,
+    },
+    [NotificationType.SPECIAL_OFFER]: {
       [NotificationChannel.EMAIL]: NotificationPriority.LOW,
       [NotificationChannel.SMS]: NotificationPriority.LOW,
       [NotificationChannel.PUSH]: NotificationPriority.LOW,
       [NotificationChannel.IN_APP]: NotificationPriority.LOW,
       [NotificationChannel.WEB]: NotificationPriority.LOW,
     },
-    [NotificationType.SYSTEM]: {
+    [NotificationType.SYSTEM_ALERT]: {
       [NotificationChannel.EMAIL]: NotificationPriority.HIGH,
       [NotificationChannel.SMS]: NotificationPriority.HIGH,
       [NotificationChannel.PUSH]: NotificationPriority.HIGH,
       [NotificationChannel.IN_APP]: NotificationPriority.HIGH,
       [NotificationChannel.WEB]: NotificationPriority.HIGH,
+    },
+    [NotificationType.REVIEW]: {
+      [NotificationChannel.EMAIL]: NotificationPriority.LOW,
+      [NotificationChannel.SMS]: NotificationPriority.LOW,
+      [NotificationChannel.PUSH]: NotificationPriority.LOW,
+      [NotificationChannel.IN_APP]: NotificationPriority.MEDIUM,
+      [NotificationChannel.WEB]: NotificationPriority.MEDIUM,
+    },
+    [NotificationType.CHAT]: {
+      [NotificationChannel.EMAIL]: NotificationPriority.LOW,
+      [NotificationChannel.SMS]: NotificationPriority.LOW,
+      [NotificationChannel.PUSH]: NotificationPriority.MEDIUM,
+      [NotificationChannel.IN_APP]: NotificationPriority.HIGH,
+      [NotificationChannel.WEB]: NotificationPriority.HIGH,
+    },
+    [NotificationType.LOYALTY]: {
+      [NotificationChannel.EMAIL]: NotificationPriority.LOW,
+      [NotificationChannel.SMS]: NotificationPriority.LOW,
+      [NotificationChannel.PUSH]: NotificationPriority.LOW,
+      [NotificationChannel.IN_APP]: NotificationPriority.LOW,
+      [NotificationChannel.WEB]: NotificationPriority.LOW,
     },
   };
 
