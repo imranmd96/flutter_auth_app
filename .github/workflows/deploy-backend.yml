@@ -209,7 +209,7 @@ jobs:
           echo "Actor: ${{ github.actor }}"
           echo "Repository: ${{ github.repository }}"
           echo "Registry: ${{ env.REGISTRY }}"
-          echo "Token length: ${{ length(secrets.GITHUB_TOKEN) }}"
+          echo "Token configured: ${{ secrets.GITHUB_TOKEN != '' }}"
 
       - name: Login to Container Registry
         uses: docker/login-action@v3
