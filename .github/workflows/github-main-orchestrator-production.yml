@@ -305,9 +305,7 @@ jobs:
           echo "🚀 Deploying to Railway..."
           npm install -g @railway/cli
           echo "✅ Railway CLI installed successfully"
-          echo "🔐 Authenticating with Railway..."
-          railway login
-          echo "Authentication successful"
+          echo "🔐 Using Railway token for authentication..."
           echo "🚀 Deploying service: ${{ matrix.service }}"
           cd backend/${{ matrix.service }}
           railway up --detach
