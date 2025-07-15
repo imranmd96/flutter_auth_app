@@ -170,9 +170,12 @@ jobs:
   build-images:
     name: 🐳 Build Docker Images
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [security-scan, test-services, test-python-services, test-go-services]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     strategy:
+      max-parallel: 4
+      fail-fast: false
       matrix:
         service:
           - api-gateway
@@ -220,6 +223,7 @@ jobs:
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
+        timeout-minutes: 20
         with:
           context: ./backend/${{ matrix.service }}
           file: ./backend/${{ matrix.service }}/Dockerfile.prod
@@ -228,6 +232,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64
 
   # =====================================
   # DEPLOY TO STAGING
