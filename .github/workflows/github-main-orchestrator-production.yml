@@ -422,19 +422,19 @@ jobs:
       - name: Service deployment notification
         if: always()
         uses: rtCamp/action-slack-notify@v2
-        with:
-          status: ${{ job.status }}
-          channel: '#deployments'
-          title: '${{ steps.config.outputs.icon }} ${{ steps.config.outputs.display_name }} Deployment'
-          message: |
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: '#deployments'
+          SLACK_COLOR: ${{ job.status == 'success' && 'good' || 'danger' }}
+          SLACK_MESSAGE: |
             Status: ${{ job.status }}
             Service: ${{ matrix.service }}
             Branch: ${{ github.ref_name }}
             Commit: ${{ github.sha }}
             Author: ${{ github.actor }}
             URL: https://${{ steps.config.outputs.subdomain }}.${{ env.PRODUCTION_DOMAIN }}
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_TITLE: '${{ steps.config.outputs.icon }} ${{ steps.config.outputs.display_name }} Deployment'
+          SLACK_USERNAME: 'ForkLine CI/CD'
 
   system-health-check:
     runs-on: ubuntu-latest
@@ -499,11 +499,11 @@ jobs:
       - name: Final deployment notification
         uses: rtCamp/action-slack-notify@v2
         if: always()
-        with:
-          status: ${{ needs.deploy-services.result }}
-          channel: '#deployments'
-          title: '🚀 ForkLine Deployment Complete'
-          message: |
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_CHANNEL: '#deployments'
+          SLACK_COLOR: ${{ needs.deploy-services.result == 'success' && 'good' || 'danger' }}
+          SLACK_MESSAGE: |
             **Status:** ${{ needs.deploy-services.result }}
             **Services Deployed:** ${{ needs.detect-changes.outputs.changed-services }}
             **Branch:** ${{ github.ref_name }}
@@ -518,5 +518,5 @@ jobs:
             • And 14 more services...
             
             📊 **Dashboard:** https://dashboard.${{ env.PRODUCTION_DOMAIN }}
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }} 
+          SLACK_TITLE: '🚀 ForkLine Deployment Complete'
+          SLACK_USERNAME: 'ForkLine CI/CD' 
