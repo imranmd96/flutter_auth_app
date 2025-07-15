@@ -47,18 +47,16 @@ export class PaymentError extends AppError {
   }
 }
 
-export class DatabaseError extends BaseError {
+export class DatabaseError extends AppError {
   constructor(message: string = 'Database operation failed') {
-    super(500, message);
+    super(message, 500);
     this.name = 'DatabaseError';
-    this.isOperational = false;
   }
 }
 
-export class ExternalServiceError extends BaseError {
+export class ExternalServiceError extends AppError {
   constructor(message: string = 'External service error') {
-    super(502, message);
+    super(message, 502);
     this.name = 'ExternalServiceError';
-    this.isOperational = false;
   }
 } 

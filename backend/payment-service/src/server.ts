@@ -1,63 +1,64 @@
 import express from 'express';
-import { config } from 'dotenv';
 import cors from 'cors';
+import helmet from 'helmet';
 import compression from 'compression';
-import { connectDB } from './config/database';
-import { securityMiddleware } from './middleware/security.middleware';
-import { performanceMiddleware } from './middleware/performance.middleware';
-import { metricsMiddleware } from './middleware/metrics.middleware';
-import { loggingMiddleware } from './middleware/logging.middleware';
-import { errorHandler } from './middleware/error.middleware';
-import { apiLimiter, paymentLimiter, subscriptionLimiter, globalLimiter, authLimiter } from './middleware/rate-limit.middleware';
-import paymentRoutes from './routes/payment.routes';
-import webhookRoutes from './routes/webhook.routes';
+import dotenv from 'dotenv';
 import { logger } from './utils/logger';
-import authRoutes from './auth/auth.routes';
-import { authMiddleware } from './auth/auth.middleware';
+import { connectDB } from './config/database';
 
 // Load environment variables
-config();
+dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 3008;
 
-// Middleware
-app.use(express.json());
+// Basic middleware
+app.use(helmet());
 app.use(cors());
 app.use(compression());
-securityMiddleware(app);
-app.use(performanceMiddleware);
-app.use(metricsMiddleware);
-app.use(loggingMiddleware);
-
-// Rate limiting
-app.use('/api', apiLimiter);
-app.use('/api/payments', paymentLimiter);
-app.use('/api/subscriptions', subscriptionLimiter);
-app.use(globalLimiter);
-app.use('/api/auth', authLimiter);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.json({ 
+    status: 'healthy',
+    service: 'payment-service',
+    timestamp: new Date().toISOString()
+  });
 });
 
-// Webhook routes (must be before body parsing middleware)
-app.use('/api/webhooks', webhookRoutes);
+// Basic API endpoint
+app.get('/api/payments/status', (req, res) => {
+  res.json({ 
+    status: 'Payment service is running',
+    version: '1.0.0'
+  });
+});
 
-// Auth routes
-app.use('/api/auth', authRoutes);
+// Error handling middleware
+app.use((err: any, req: any, res: any, next: any) => {
+  logger.error('Error occurred:', err);
+  res.status(err.statusCode || 500).json({
+    status: 'error',
+    message: err.message || 'Internal server error'
+  });
+});
 
-// Protected routes
-app.use('/api/payments', authMiddleware.authenticate, paymentRoutes);
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({
+    status: 'error',
+    message: 'Route not found'
+  });
+});
 
-// Error handling
-app.use(errorHandler);
-
-// Connect to database and start server
+// Start server
 const startServer = async () => {
   try {
     await connectDB();
-    const PORT = process.env.PORT || 3011;
+    logger.info('Database connected successfully');
+    
     app.listen(PORT, () => {
       logger.info(`Payment service running on port ${PORT}`);
     });
@@ -67,18 +68,15 @@ const startServer = async () => {
   }
 };
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception:', error);
-  process.exit(1);
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  process.exit(0);
 });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (error) => {
-  logger.error('Unhandled Rejection:', error);
-  process.exit(1);
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  process.exit(0);
 });
 
-startServer();
-
-export default app; 
+startServer(); 
