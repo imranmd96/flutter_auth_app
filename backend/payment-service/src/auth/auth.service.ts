@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { OAuth2Provider } from './oauth2.provider';
 import { logger } from '../utils/logger';
-import { AppError } from '../middleware/error.middleware';
+import { AppError } from '../utils/errors';
 import { redisClient } from '../config/redis';
 
 export interface UserPayload {
@@ -20,18 +20,22 @@ export class AuthService {
 
   async generateToken(payload: UserPayload): Promise<string> {
     try {
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        throw new AppError('JWT_SECRET is not configured', 500);
+      }
+      
       const token = jwt.sign(
         payload,
-        process.env.JWT_SECRET!,
+        secret,
         { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
       );
 
       // Store token in Redis for blacklisting
-      await redisClient.set(
+      await redisClient.setEx(
         `token:${payload.userId}`,
-        token,
-        'EX',
-        3600 // 1 hour
+        3600, // 1 hour
+        token
       );
 
       return token;
@@ -43,7 +47,12 @@ export class AuthService {
 
   async verifyToken(token: string): Promise<UserPayload> {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as UserPayload;
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        throw new AppError('JWT_SECRET is not configured', 500);
+      }
+      
+      const decoded = jwt.verify(token, secret) as UserPayload;
       
       // Check if token is blacklisted
       const storedToken = await redisClient.get(`token:${decoded.userId}`);
