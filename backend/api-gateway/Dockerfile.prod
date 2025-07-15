@@ -4,6 +4,11 @@ FROM node:18-alpine AS builder
 # Create app directory
 WORKDIR /usr/src/app
 
+# Add labels for GitHub Container Registry
+LABEL org.opencontainers.image.source=https://github.com/imranmd96/flutter_auth_app
+LABEL org.opencontainers.image.description="ForkLine API Gateway Service"
+LABEL org.opencontainers.image.licenses=MIT
+
 # Copy package files
 COPY package*.json ./
 
