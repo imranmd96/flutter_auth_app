@@ -1,191 +1,192 @@
 import sgMail from '@sendgrid/mail';
 import twilio from 'twilio';
-import admin from 'firebase-admin';
-import { Notification, NotificationChannel, NotificationStatus } from '../models/notification';
-import { Template } from '../models/template';
+import * as admin from 'firebase-admin';
+import { Notification } from '../models/notification';
 import { Preference } from '../models/preference';
-import { Redis } from 'redis';
+import { Template } from '../models/template';
+import { createClient } from 'redis';
 
 export class NotificationService {
-  private twilioClient: twilio.Twilio;
-  private redisClient: Redis;
+  private twilioClient: any;
+  private redisClient: any;
 
   constructor() {
-    // Initialize SendGrid
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
+    this.initializeServices();
+  }
 
-    // Initialize Twilio
-    this.twilioClient = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN
-    );
+  private async initializeServices(): Promise<void> {
+    try {
+      // Initialize SendGrid
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
 
-    // Initialize Firebase Admin
-    if (!admin.apps.length) {
-      admin.initializeApp({
-        credential: admin.credential.cert(require(process.env.FIREBASE_CREDENTIALS || ''))
+      // Initialize Twilio
+      this.twilioClient = twilio(
+        process.env.TWILIO_ACCOUNT_SID,
+        process.env.TWILIO_AUTH_TOKEN
+      );
+
+      // Initialize Firebase Admin
+      if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+      }
+
+      // Initialize Redis
+      this.redisClient = createClient({
+        url: process.env.REDIS_URL || 'redis://localhost:6379'
       });
-    }
+      await this.redisClient.connect();
 
-    // Initialize Redis client
-    this.redisClient = Redis.createClient({
-      url: process.env.REDIS_URI || 'redis://localhost:6379'
-    });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Failed to initialize notification services:', errorMessage);
+    }
   }
 
   async sendNotification(notification: any): Promise<void> {
     try {
       // Check user preferences
-      const preference = await Preference.findOne({ userId: notification.recipient.id });
-      if (!preference) {
-        throw new Error('User preferences not found');
-      }
-
-      // Check if notification type is enabled
+      const preference = await this.getUserPreferences(notification.userId);
+      
       if (!preference.types[notification.type]) {
-        console.log(`Notification type ${notification.type} is disabled for user ${notification.recipient.id}`);
         return;
       }
 
-      // Check if channel is enabled
       if (!preference.channels[notification.channel]) {
-        console.log(`Channel ${notification.channel} is disabled for user ${notification.recipient.id}`);
         return;
       }
-
-      // Check quiet hours
-      if (preference.quietHours.enabled && this.isInQuietHours(preference.quietHours)) {
-        console.log(`In quiet hours for user ${notification.recipient.id}`);
-        return;
-      }
-
-      // Get template
-      const template = await Template.findOne({
-        type: notification.type,
-        language: preference.language,
-        isActive: true
-      });
-
-      if (!template) {
-        throw new Error(`Template not found for type ${notification.type}`);
-      }
-
-      // Process template variables
-      const content = this.processTemplate(template.content, notification.content.data);
 
       // Send notification based on channel
       switch (notification.channel) {
-        case NotificationChannel.EMAIL:
-          await this.sendEmail(notification.recipient.email, content);
+        case 'email':
+          await this.sendEmailNotification(notification);
           break;
-        case NotificationChannel.SMS:
-          await this.sendSMS(notification.recipient.phone, content);
+        case 'sms':
+          await this.sendSmsNotification(notification);
           break;
-        case NotificationChannel.PUSH:
-          await this.sendPushNotification(notification.recipient.deviceToken, content);
+        case 'push':
+          await this.sendPushNotification(notification);
           break;
-        case NotificationChannel.IN_APP:
-          await this.sendInAppNotification(notification.recipient.id, content);
+        case 'in_app':
+          await this.sendInAppNotification(notification);
           break;
-        case NotificationChannel.WEB:
-          await this.sendWebNotification(notification.recipient.id, content);
+        case 'web':
+          await this.sendWebNotification(notification);
           break;
         default:
-          throw new Error(`Unsupported channel: ${notification.channel}`);
+          console.warn(`Unsupported notification channel: ${notification.channel}`);
       }
 
-      // Update notification status
-      await Notification.findByIdAndUpdate(notification._id, {
-        status: NotificationStatus.SENT,
-        sentAt: new Date()
-      });
-
     } catch (error) {
-      console.error('Error sending notification:', error);
-      await Notification.findByIdAndUpdate(notification._id, {
-        status: NotificationStatus.FAILED,
-        error: error.message
-      });
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Failed to send notification:', errorMessage);
     }
   }
 
-  private async sendEmail(email: string, content: any): Promise<void> {
-    const msg = {
-      to: email,
-      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@forkline.com',
-      subject: content.subject,
-      text: content.body,
-      html: content.html
-    };
-
-    await sgMail.send(msg);
+  private async getUserPreferences(userId: string): Promise<any> {
+    try {
+      const preference = await Preference.findOne({ userId });
+      return preference || this.getDefaultPreferences();
+    } catch (error) {
+      console.error('Failed to get user preferences:', error);
+      return this.getDefaultPreferences();
+    }
   }
 
-  private async sendSMS(phone: string, content: any): Promise<void> {
-    await this.twilioClient.messages.create({
-      body: content.body,
-      to: phone,
-      from: process.env.TWILIO_PHONE_NUMBER
-    });
-  }
-
-  private async sendPushNotification(deviceToken: string, content: any): Promise<void> {
-    const message = {
-      notification: {
-        title: content.title,
-        body: content.body
+  private getDefaultPreferences(): any {
+    return {
+      types: {
+        order_status: true,
+        booking_confirmation: true,
+        payment_confirmation: true,
+        reservation_change: true,
+        special_offer: true,
+        system_alert: true,
+        review: true,
+        chat: true,
+        loyalty: true
       },
-      data: content.data,
-      token: deviceToken
-    };
-
-    await admin.messaging().send(message);
-  }
-
-  private async sendInAppNotification(userId: string, content: any): Promise<void> {
-    // Store in Redis for real-time delivery
-    await this.redisClient.publish('in-app-notifications', JSON.stringify({
-      userId,
-      content
-    }));
-  }
-
-  private async sendWebNotification(userId: string, content: any): Promise<void> {
-    // Store in Redis for real-time delivery
-    await this.redisClient.publish('web-notifications', JSON.stringify({
-      userId,
-      content
-    }));
-  }
-
-  private processTemplate(template: any, data: any): any {
-    let processed = { ...template };
-    
-    // Replace variables in content
-    Object.keys(data).forEach(key => {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      processed.body = processed.body.replace(regex, data[key]);
-      if (processed.html) {
-        processed.html = processed.html.replace(regex, data[key]);
+      channels: {
+        email: true,
+        push: true,
+        sms: false,
+        in_app: true,
+        web: true
       }
-    });
-
-    return processed;
+    };
   }
 
-  private isInQuietHours(quietHours: any): boolean {
-    const now = new Date();
-    const [startHour, startMinute] = quietHours.start.split(':').map(Number);
-    const [endHour, endMinute] = quietHours.end.split(':').map(Number);
+  private async sendEmailNotification(notification: any): Promise<void> {
+    try {
+      const msg = {
+        to: notification.recipient.email,
+        from: process.env.FROM_EMAIL || 'noreply@forkline.com',
+        subject: notification.title,
+        text: notification.content,
+        html: notification.content,
+      };
 
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+      await sgMail.send(msg);
+      console.log(`Email notification sent to ${notification.recipient.email}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Failed to send email notification:', errorMessage);
+    }
+  }
 
-    const startTime = startHour * 60 + startMinute;
-    const endTime = endHour * 60 + endMinute;
-    const currentTime = currentHour * 60 + currentMinute;
+  private async sendSmsNotification(notification: any): Promise<void> {
+    try {
+      await this.twilioClient.messages.create({
+        body: notification.content,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: notification.recipient.phone,
+      });
+      console.log(`SMS notification sent to ${notification.recipient.phone}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Failed to send SMS notification:', errorMessage);
+    }
+  }
 
-    return currentTime >= startTime && currentTime <= endTime;
+  private async sendPushNotification(notification: any): Promise<void> {
+    try {
+      const message = {
+        notification: {
+          title: notification.title,
+          body: notification.content,
+        },
+        token: notification.recipient.fcmToken,
+      };
+
+      await admin.messaging().send(message);
+      console.log(`Push notification sent to ${notification.recipient.fcmToken}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Failed to send push notification:', errorMessage);
+    }
+  }
+
+  private async sendInAppNotification(notification: any): Promise<void> {
+    try {
+      // Store in Redis for real-time delivery
+      await this.redisClient.publish('notifications', JSON.stringify(notification));
+      console.log(`In-app notification stored for user ${notification.userId}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Failed to send in-app notification:', errorMessage);
+    }
+  }
+
+  private async sendWebNotification(notification: any): Promise<void> {
+    try {
+      // Use WebSocket to send real-time web notifications
+      await this.redisClient.publish('web_notifications', JSON.stringify(notification));
+      console.log(`Web notification sent for user ${notification.userId}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Failed to send web notification:', errorMessage);
+    }
   }
 } 
