@@ -80,7 +80,7 @@ export class AuthMiddleware {
       }
     };
   };
-}
+} 
 
 // Create an instance and export the middleware function
 const authMiddlewareInstance = new AuthMiddleware();

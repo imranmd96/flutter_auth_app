@@ -16,27 +16,27 @@ export class NotificationService {
 
   private async initializeServices(): Promise<void> {
     try {
-      // Initialize SendGrid
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
+    // Initialize SendGrid
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
 
-      // Initialize Twilio
-      this.twilioClient = twilio(
-        process.env.TWILIO_ACCOUNT_SID,
-        process.env.TWILIO_AUTH_TOKEN
-      );
+    // Initialize Twilio
+    this.twilioClient = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
 
-      // Initialize Firebase Admin
+    // Initialize Firebase Admin
       if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-        admin.initializeApp({
+      admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
-        });
-      }
+      });
+    }
 
       // Initialize Redis
       this.redisClient = createClient({
         url: process.env.REDIS_URL || 'redis://localhost:6379'
-      });
+    });
       await this.redisClient.connect();
 
     } catch (error) {
@@ -49,7 +49,7 @@ export class NotificationService {
     try {
       // Check user preferences
       const preference = await this.getUserPreferences(notification.userId);
-      
+
       if (!preference.types[notification.type]) {
         return;
       }
@@ -120,15 +120,15 @@ export class NotificationService {
 
   private async sendEmailNotification(notification: any): Promise<void> {
     try {
-      const msg = {
+    const msg = {
         to: notification.recipient.email,
         from: process.env.FROM_EMAIL || 'noreply@forkline.com',
         subject: notification.title,
         text: notification.content,
         html: notification.content,
-      };
+    };
 
-      await sgMail.send(msg);
+    await sgMail.send(msg);
       console.log(`Email notification sent to ${notification.recipient.email}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -138,11 +138,11 @@ export class NotificationService {
 
   private async sendSmsNotification(notification: any): Promise<void> {
     try {
-      await this.twilioClient.messages.create({
+    await this.twilioClient.messages.create({
         body: notification.content,
         from: process.env.TWILIO_PHONE_NUMBER,
         to: notification.recipient.phone,
-      });
+    });
       console.log(`SMS notification sent to ${notification.recipient.phone}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -152,15 +152,15 @@ export class NotificationService {
 
   private async sendPushNotification(notification: any): Promise<void> {
     try {
-      const message = {
-        notification: {
+    const message = {
+      notification: {
           title: notification.title,
           body: notification.content,
-        },
+      },
         token: notification.recipient.fcmToken,
-      };
+    };
 
-      await admin.messaging().send(message);
+    await admin.messaging().send(message);
       console.log(`Push notification sent to ${notification.recipient.fcmToken}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -170,7 +170,7 @@ export class NotificationService {
 
   private async sendInAppNotification(notification: any): Promise<void> {
     try {
-      // Store in Redis for real-time delivery
+    // Store in Redis for real-time delivery
       await this.redisClient.publish('notifications', JSON.stringify(notification));
       console.log(`In-app notification stored for user ${notification.userId}`);
     } catch (error) {
