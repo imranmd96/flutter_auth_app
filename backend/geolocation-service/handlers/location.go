@@ -3,18 +3,18 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 
-	"forkLine/backend/geolocation-service/models"
 	"forkLine/backend/geolocation-service/config"
+	"forkLine/backend/geolocation-service/models"
 )
 
 type LocationHandler struct {
@@ -40,7 +40,7 @@ func (h *LocationHandler) CalculateDistance(c *gin.Context) {
 	}
 
 	distance := calculateHaversineDistance(req.Origin, req.Destination)
-	duration := distance / h.config.DefaultDeliverySpeed * 60 // Convert to minutes
+	duration := distance / h.config.Location.DefaultDeliverySpeed * 60 // Convert to minutes
 
 	c.JSON(http.StatusOK, models.DistanceResponse{
 		Distance: distance,
@@ -172,7 +172,7 @@ func (h *LocationHandler) ReverseGeocode(c *gin.Context) {
 	}
 
 	// Check cache first
-	cacheKey := "reverse_geocode:" + string(req.Latitude) + "," + string(req.Longitude)
+	cacheKey := "reverse_geocode:" + fmt.Sprintf("%.6f", req.Latitude) + "," + fmt.Sprintf("%.6f", req.Longitude)
 	cachedResult, err := h.redis.Get(context.Background(), cacheKey).Result()
 	if err == nil {
 		var result models.GeocodeResponse
@@ -187,11 +187,11 @@ func (h *LocationHandler) ReverseGeocode(c *gin.Context) {
 	result := models.GeocodeResponse{
 		Location: req,
 		Address: models.Address{
-			Street:          "123 Main St",
-			City:           "San Francisco",
-			State:          "CA",
-			Country:        "USA",
-			PostalCode:     "94105",
+			Street:           "123 Main St",
+			City:             "San Francisco",
+			State:            "CA",
+			Country:          "USA",
+			PostalCode:       "94105",
 			FormattedAddress: "123 Main St, San Francisco, CA 94105, USA",
 		},
 	}
@@ -219,4 +219,4 @@ func calculateHaversineDistance(origin, destination models.Location) float64 {
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
 
 	return R * c
-} 
+}

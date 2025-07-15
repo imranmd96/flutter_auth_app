@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"github.com/go-redis/redis/v8"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"forkLine/backend/geolocation-service/models"
 	"forkLine/backend/geolocation-service/config"
+	"forkLine/backend/geolocation-service/models"
 )
 
 type DeliveryHandler struct {
@@ -67,7 +68,7 @@ func (h *DeliveryHandler) EstimateDeliveryTime(c *gin.Context) {
 	}
 
 	// Calculate estimated time
-	estimatedTime := int(distance / h.config.DefaultDeliverySpeed * 60) // Convert to minutes
+	estimatedTime := int(distance / h.config.Location.DefaultDeliverySpeed * 60) // Convert to minutes
 	if estimatedTime < deliveryZone.EstimatedTime {
 		estimatedTime = deliveryZone.EstimatedTime
 	}
@@ -135,7 +136,7 @@ func (h *DeliveryHandler) OptimizeDeliveryRoute(c *gin.Context) {
 		totalDistance += calculateHaversineDistance(optimizedRoute[i], optimizedRoute[i+1])
 	}
 
-	estimatedDuration := int(totalDistance / h.config.DefaultDeliverySpeed * 60) // Convert to minutes
+	estimatedDuration := int(totalDistance / h.config.Location.DefaultDeliverySpeed * 60) // Convert to minutes
 
 	c.JSON(http.StatusOK, models.RouteOptimizationResponse{
 		OptimizedRoute:    optimizedRoute,
@@ -188,4 +189,4 @@ func (h *DeliveryHandler) GetDriverLocation(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, location)
-} 
+}
