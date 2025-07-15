@@ -20,6 +20,25 @@ export const globalLimiter = rateLimit({
   }
 });
 
+// API rate limiter
+export const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 API requests per windowMs
+  message: 'Too many API requests from this IP, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    logger.warn('API rate limit exceeded', {
+      ip: req.ip,
+      path: req.path
+    });
+    res.status(429).json({
+      status: 'error',
+      message: 'Too many API requests from this IP, please try again later'
+    });
+  }
+});
+
 // Payment-specific rate limiter
 export const paymentLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour

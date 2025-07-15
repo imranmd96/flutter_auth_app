@@ -1,54 +1,49 @@
-export class BaseError extends Error {
-  constructor(
-    public statusCode: number,
-    public message: string,
-    public isOperational = true
-  ) {
+export class AppError extends Error {
+  public readonly statusCode: number;
+  public readonly isOperational: boolean;
+
+  constructor(message: string, statusCode: number = 500, isOperational: boolean = true) {
     super(message);
-    Object.setPrototypeOf(this, new.target.prototype);
+    this.statusCode = statusCode;
+    this.isOperational = isOperational;
+
     Error.captureStackTrace(this, this.constructor);
   }
 }
 
-export class ValidationError extends BaseError {
+export class ValidationError extends AppError {
   constructor(message: string) {
-    super(400, message);
-    this.name = 'ValidationError';
+    super(message, 400);
   }
 }
 
-export class AuthenticationError extends BaseError {
+export class AuthenticationError extends AppError {
   constructor(message: string = 'Authentication failed') {
-    super(401, message);
-    this.name = 'AuthenticationError';
+    super(message, 401);
   }
 }
 
-export class AuthorizationError extends BaseError {
-  constructor(message: string = 'Not authorized') {
-    super(403, message);
-    this.name = 'AuthorizationError';
+export class AuthorizationError extends AppError {
+  constructor(message: string = 'Access denied') {
+    super(message, 403);
   }
 }
 
-export class NotFoundError extends BaseError {
+export class NotFoundError extends AppError {
   constructor(message: string = 'Resource not found') {
-    super(404, message);
-    this.name = 'NotFoundError';
+    super(message, 404);
   }
 }
 
-export class ConflictError extends BaseError {
+export class ConflictError extends AppError {
   constructor(message: string = 'Resource conflict') {
-    super(409, message);
-    this.name = 'ConflictError';
+    super(message, 409);
   }
 }
 
-export class PaymentError extends BaseError {
-  constructor(message: string = 'Payment processing failed') {
-    super(422, message);
-    this.name = 'PaymentError';
+export class PaymentError extends AppError {
+  constructor(message: string, public readonly code?: string) {
+    super(message, 402);
   }
 }
 

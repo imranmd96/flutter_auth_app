@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-) => {
+import jwt from 'jsonwebtoken';
+import { AppError } from '../utils/errors';
+
+export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
