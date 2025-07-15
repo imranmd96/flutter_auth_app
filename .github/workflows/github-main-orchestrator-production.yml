@@ -27,6 +27,11 @@ env:
   IMAGE_PREFIX: forkline
   PRODUCTION_DOMAIN: forkline.com
 
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
@@ -263,7 +268,7 @@ jobs:
           output: 'trivy-results-${{ matrix.service }}.sarif'
 
       - name: Upload security scan results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
