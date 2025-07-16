@@ -313,49 +313,9 @@ jobs:
           echo "📋 Service: $SERVICE_NAME"
           echo "🐳 Image: $IMAGE_URL"
           
-          # Method 1: Try Railway API deployment (most reliable)
-          echo "🔧 Deploying via Railway API..."
-          
-          # Try Railway API with corrected endpoint and simpler approach
-          echo "🔧 Testing Railway API connection..."
-          API_TEST=$(curl -s -X POST \
-            "https://backboard.railway.app/graphql" \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query": "query { me { id } }"}' \
-            2>/dev/null | grep -o '"id"' || echo "AUTH_FAILED")
-          
-          if [[ "$API_TEST" == *"id"* ]]; then
-            echo "✅ Railway API authentication successful"
-            
-            # Create Railway service with simplified API call
-            DEPLOY_RESPONSE=$(curl -s -X POST \
-              "https://backboard.railway.app/graphql" \
-              -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-              -H "Content-Type: application/json" \
-              -d '{
-                "query": "mutation serviceCreate($input: ServiceCreateInput!) { serviceCreate(input: $input) { id name } }",
-                "variables": {
-                  "input": {
-                    "name": "'$SERVICE_NAME'",
-                    "source": {
-                      "image": "'$IMAGE_URL'"
-                    }
-                  }
-                }
-              }' 2>/dev/null)
-            
-            echo "🔍 API Response: $DEPLOY_RESPONSE"
-          else
-            echo "❌ Railway API authentication failed"
-            DEPLOY_RESPONSE="API_AUTH_FAILED"
-          fi
-          
-          if [[ "$DEPLOY_RESPONSE" == *"serviceCreate"* && "$DEPLOY_RESPONSE" != "API_FAILED" && "$DEPLOY_RESPONSE" != "API_AUTH_FAILED" ]]; then
-            echo "✅ Railway API deployment successful!"
-            echo "🎉 Service $SERVICE_NAME deployed with image $IMAGE_URL"
-          else
-                      echo "⚠️ Railway API method failed, providing deployment alternatives..."
+                    # Focus on Docker build success and provide deployment options
+          echo "🔧 Docker image ready for deployment..."
+          echo "🎯 Skipping Railway API (use GitHub integration for automatic deployment)"
           echo ""
           echo "🐳 ✅ Docker image built and pushed successfully!"
           echo "📦 Image URL: $IMAGE_URL"
@@ -382,12 +342,8 @@ jobs:
           echo "   3. Name: $SERVICE_NAME"
           echo ""
           echo "🎯 Both methods work - GitHub integration is recommended for automation!"
-            
-            # Don't exit with error since Docker build succeeded
-            # This is a deployment method issue, not a build failure
-          fi
+          echo "✅ Workflow completed successfully - ready for deployment!"
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           NODE_ENV: production
 
       # Render deployment removed - Railway-only deployment
