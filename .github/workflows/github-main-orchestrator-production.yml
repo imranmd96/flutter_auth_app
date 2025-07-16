@@ -307,36 +307,36 @@ jobs:
         run: |
           echo "🚀 Deploying to Railway..."
           
-          # Method 1: Try direct Railway CLI deployment
+          # Install Railway CLI
           echo "📦 Installing Railway CLI..."
-          npm install -g @railway/cli@latest
+          curl -fsSL https://railway.app/install.sh | sh
+          export PATH="$HOME/.railway/bin:$PATH"
           
-          echo "🔐 Authenticating with Railway..."
-          echo "${{ secrets.RAILWAY_TOKEN }}" | railway login --token
-          
+          echo "🔐 Railway CLI installed, using token from environment..."
           echo "🚀 Deploying service: ${{ matrix.service }}"
+          
           cd backend/${{ matrix.service }}
           
-          # Check if railway.json exists, if not create basic config
-          if [ ! -f "railway.json" ]; then
-            echo "📋 Creating Railway configuration..."
-            cat > railway.json << EOF
-          {
-            "build": {
-              "builder": "DOCKERFILE",
-              "dockerfilePath": "Dockerfile.prod"
-            },
-            "deploy": {
-              "restartPolicyType": "ON_FAILURE",
-              "restartPolicyMaxRetries": 10
-            }
-          }
-          EOF
-          fi
+          # Create a simple railway.toml for configuration
+          echo "📋 Creating Railway configuration..."
+          cat > railway.toml << EOF
+          [build]
+          builder = "dockerfile"
+          dockerfilePath = "Dockerfile.prod"
           
-          # Deploy with explicit service name
-          echo "🐳 Deploying to Railway..."
-          railway up --service forkline-${{ matrix.service }} || railway up
+          [deploy]
+          startCommand = "npm start"
+          healthcheckPath = "/health"
+          healthcheckTimeout = 300
+          restartPolicyType = "on_failure"
+          EOF
+          
+          # Deploy using Railway CLI (token is automatically picked up from env)
+          echo "🐳 Starting Railway deployment..."
+          railway up --detach || {
+            echo "⚠️ Initial deployment failed, trying alternative method..."
+            railway deploy --detach
+          }
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           NODE_ENV: production
