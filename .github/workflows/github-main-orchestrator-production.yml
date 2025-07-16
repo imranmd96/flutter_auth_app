@@ -343,22 +343,7 @@ jobs:
           echo "❌ Health check failed for ${{ steps.config.outputs.display_name }} after $max_attempts attempts"
           exit 1
 
-      - name: Service deployment notification
-        if: always()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_CHANNEL: '#deployments'
-          SLACK_COLOR: ${{ job.status == 'success' && 'good' || 'danger' }}
-          SLACK_MESSAGE: |
-            Status: ${{ job.status }}
-            Service: ${{ matrix.service }}
-            Branch: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
-            Author: ${{ github.actor }}
-            URL: https://${{ steps.config.outputs.subdomain }}.${{ env.PRODUCTION_DOMAIN }}
-          SLACK_TITLE: '${{ steps.config.outputs.icon }} ${{ steps.config.outputs.display_name }} Deployment'
-          SLACK_USERNAME: 'ForkLine CI/CD'
+      # Service deployment notification removed - Slack notifications disabled
 
   system-health-check:
     runs-on: ubuntu-latest
@@ -420,27 +405,4 @@ jobs:
     if: always() && needs.detect-changes.outputs.changed-services != ''
     
     steps:
-      - name: Final deployment notification
-        uses: rtCamp/action-slack-notify@v2
-        if: always()
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_CHANNEL: '#deployments'
-          SLACK_COLOR: ${{ needs.deploy-services.result == 'success' && 'good' || 'danger' }}
-          SLACK_MESSAGE: |
-            **Status:** ${{ needs.deploy-services.result }}
-            **Services Deployed:** ${{ needs.detect-changes.outputs.changed-services }}
-            **Branch:** ${{ github.ref_name }}
-            **Commit:** ${{ github.sha }}
-            **Author:** ${{ github.actor }}
-            **System Health:** ${{ needs.system-health-check.result }}
-            
-            🌐 **Production URLs:**
-            • API Gateway: https://api.${{ env.PRODUCTION_DOMAIN }}
-            • Auth Service: https://auth.${{ env.PRODUCTION_DOMAIN }}
-            • Payment Service: https://payment.${{ env.PRODUCTION_DOMAIN }}
-            • And 14 more services...
-            
-            📊 **Dashboard:** https://dashboard.${{ env.PRODUCTION_DOMAIN }}
-          SLACK_TITLE: '🚀 ForkLine Deployment Complete'
-          SLACK_USERNAME: 'ForkLine CI/CD' 
+      # Final deployment notification removed - Slack notifications disabled 

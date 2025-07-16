@@ -305,16 +305,7 @@ jobs:
           echo "📚 Updating production API documentation..."
           # Update swagger.yaml with production URLs
 
-      - name: Send deployment notification
-        uses: rtCamp/action-slack-notify@v2
-        if: always()
-        env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_CHANNEL: '#deployments'
-          SLACK_COLOR: ${{ job.status == 'success' && 'good' || 'danger' }}
-          SLACK_MESSAGE: "🚀 ForkLine backend deployment to production completed!"
-          SLACK_TITLE: 'Backend Deployment Status'
-          SLACK_USERNAME: 'ForkLine CI/CD'
+      # Deployment notification removed - Slack notifications disabled
 
   # =====================================
   # POST-DEPLOYMENT TESTS
