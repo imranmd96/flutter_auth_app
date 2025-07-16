@@ -1,0 +1,16 @@
+service_name: mongodb
+display_name: "MongoDB Database"
+language: database
+deployment_platform: railway
+docker_image: mongo:latest
+health_check_url: https://mongodb.forkline.com/health
+deployment_secrets:
+  - RAILWAY_TOKEN
+environment_variables:
+  - MONGO_INITDB_ROOT_USERNAME=admin
+  - MONGO_INITDB_ROOT_PASSWORD=password
+  - MONGO_INITDB_DATABASE=forkline
+build_steps:
+  - echo "No build steps needed for MongoDB"
+notification_icon: "🍃"
+subdomain: mongodb 

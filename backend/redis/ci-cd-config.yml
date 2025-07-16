@@ -1,0 +1,14 @@
+service_name: redis
+display_name: "Redis Cache"
+language: database
+deployment_platform: railway
+docker_image: redis:alpine
+health_check_url: https://redis.forkline.com/health
+deployment_secrets:
+  - RAILWAY_TOKEN
+environment_variables:
+  - REDIS_PASSWORD=password
+build_steps:
+  - echo "No build steps needed for Redis"
+notification_icon: "🔴"
+subdomain: redis 

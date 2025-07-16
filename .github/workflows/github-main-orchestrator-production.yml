@@ -59,7 +59,7 @@ jobs:
         id: changes
         run: |
           # All available services
-          ALL_SERVICES="api-gateway,auth-service,user-service,nginx"
+          ALL_SERVICES="api-gateway,auth-service,user-service,nginx,mongodb,redis"
           # Commented out services (not deploying):
           # payment-service,chat-service,notification-service,review-service,loyalty-service,media-service,restaurant-service,analytics-service,inventory-service,menu-service,search-service,order-service,booking-service,geolocation-service
           
@@ -136,6 +136,7 @@ jobs:
           LANGUAGE=$(grep "language:" "$CONFIG_FILE" | cut -d' ' -f2 | tr -d '\r\n')
           PLATFORM=$(grep "deployment_platform:" "$CONFIG_FILE" | cut -d' ' -f2 | tr -d '\r\n')
           DOCKER_FILE=$(grep "docker_file:" "$CONFIG_FILE" | cut -d' ' -f2 | tr -d '\r\n')
+          DOCKER_IMAGE=$(grep "docker_image:" "$CONFIG_FILE" | cut -d' ' -f2 | tr -d '\r\n')
           HEALTH_URL=$(grep "health_check_url:" "$CONFIG_FILE" | cut -d' ' -f2- | tr -d '\r\n')
           ICON=$(grep "notification_icon:" "$CONFIG_FILE" | cut -d'"' -f2)
           SUBDOMAIN=$(grep "subdomain:" "$CONFIG_FILE" | cut -d' ' -f2 | tr -d '\r\n ' | sed 's/[[:space:]]*$//')
@@ -144,6 +145,7 @@ jobs:
           echo "language=$LANGUAGE" >> $GITHUB_OUTPUT
           echo "platform=$PLATFORM" >> $GITHUB_OUTPUT
           echo "docker_file=$DOCKER_FILE" >> $GITHUB_OUTPUT
+          echo "docker_image=$DOCKER_IMAGE" >> $GITHUB_OUTPUT
           echo "health_url=$HEALTH_URL" >> $GITHUB_OUTPUT
           echo "icon=$ICON" >> $GITHUB_OUTPUT
           echo "subdomain=$SUBDOMAIN" >> $GITHUB_OUTPUT
@@ -180,6 +182,15 @@ jobs:
       - name: Install dependencies and test
         run: |
           SERVICE="${{ matrix.service }}"
+          
+          # Skip build steps for database services
+          if [[ "${{ steps.config.outputs.language }}" == "database" ]]; then
+            echo "🗄️ Database service detected: ${{ steps.config.outputs.display_name }}"
+            echo "📦 Using official Docker image: ${{ steps.config.outputs.docker_image }}"
+            echo "✅ No build steps needed for database services"
+            exit 0
+          fi
+          
           cd backend/$SERVICE
           
           case "${{ steps.config.outputs.language }}" in
@@ -265,6 +276,12 @@ jobs:
               echo "📋 Configuration files will be used from Docker image"
               ;;
               
+            "database")
+              echo "🗄️ Database service detected: ${{ steps.config.outputs.display_name }}"
+              echo "📦 Using official Docker image: ${{ steps.config.outputs.docker_image }}"
+              echo "✅ No build steps needed for database services"
+              ;;
+              
             *)
               echo "❌ Unsupported language: ${{ steps.config.outputs.language }}"
               exit 1
@@ -298,7 +315,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && steps.config.outputs.language != 'database'
         uses: docker/build-push-action@v5
         with:
           context: backend/${{ matrix.service }}
@@ -341,6 +358,13 @@ jobs:
           
           # Deploy directly to Railway using API
           echo "🚀 Deploying directly to Railway..."
+          
+          # Use official Docker image for database services
+          if [[ "${{ steps.config.outputs.language }}" == "database" ]]; then
+            IMAGE_URL="${{ steps.config.outputs.docker_image }}"
+            echo "🗄️ Database service: Using official image"
+          fi
+          
           echo "📦 Image: $IMAGE_URL"
           echo "🏷️  Service: $SERVICE_NAME"
           
@@ -362,7 +386,44 @@ jobs:
           )
           
           # Prepare GraphQL variables
-          VARIABLES=$(cat << EOF
+          if [[ "${{ steps.config.outputs.language }}" == "database" ]]; then
+            # Database service environment variables
+            if [[ "${{ matrix.service }}" == "mongodb" ]]; then
+              VARIABLES=$(cat << EOF
+          {
+            "input": {
+              "name": "$SERVICE_NAME",
+              "source": {
+                "image": "$IMAGE_URL"
+              },
+              "variables": {
+                "MONGO_INITDB_ROOT_USERNAME": "admin",
+                "MONGO_INITDB_ROOT_PASSWORD": "password",
+                "MONGO_INITDB_DATABASE": "forkline"
+              }
+            }
+          }
+          EOF
+              )
+            elif [[ "${{ matrix.service }}" == "redis" ]]; then
+              VARIABLES=$(cat << EOF
+          {
+            "input": {
+              "name": "$SERVICE_NAME",
+              "source": {
+                "image": "$IMAGE_URL"
+              },
+              "variables": {
+                "REDIS_PASSWORD": "password"
+              }
+            }
+          }
+          EOF
+              )
+            fi
+          else
+            # Application service environment variables
+            VARIABLES=$(cat << EOF
           {
             "input": {
               "name": "$SERVICE_NAME",
@@ -377,7 +438,8 @@ jobs:
             }
           }
           EOF
-          )
+            )
+          fi
           
           # Make API call to Railway
           RESPONSE=$(curl -s -X POST "$RAILWAY_API_URL" \
@@ -466,6 +528,8 @@ jobs:
             "auth:https://auth.${{ env.PRODUCTION_DOMAIN }}/health"
             "user:https://user.${{ env.PRODUCTION_DOMAIN }}/health"
             "nginx:https://nginx.${{ env.PRODUCTION_DOMAIN }}/health"
+            "mongodb:https://mongodb.${{ env.PRODUCTION_DOMAIN }}/health"
+            "redis:https://redis.${{ env.PRODUCTION_DOMAIN }}/health"
           )
           
           # Commented out service health endpoints (not deploying):
