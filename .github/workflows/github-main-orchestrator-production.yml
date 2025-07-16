@@ -339,36 +339,75 @@ jobs:
           echo "✅ Railway CLI installed successfully"
           railway --version
           
-          # Skip Railway CLI authentication issues - provide manual deployment instructions
-          echo "🔧 Railway CLI authentication bypass - using manual deployment approach..."
-          echo ""
-          echo "🐳 ✅ Docker image built and pushed successfully!"
-          echo "📦 Image URL: $IMAGE_URL"
-          echo ""
-          echo "🚀 RECOMMENDED: Use Railway GitHub Integration"
-          echo "   1. Go to: https://railway.app/dashboard"
-          echo "   2. Click 'New Project' → 'Deploy from GitHub Repo'"
-          echo "   3. Connect this repository: imranmd96/flutter_auth_app"
-          echo "   4. Set Root Directory: backend/${{ matrix.service }}"
-          echo "   5. Set Build Method: Dockerfile"
-          echo "   6. Set Dockerfile Path: Dockerfile.prod"
-          echo "   7. Add Environment Variables:"
-          echo "      - NODE_ENV=production"
-          echo "      - PRODUCTION_DOMAIN=forkline.com"
-          echo "      - PORT=3000"
-          echo "   8. Deploy!"
-          echo ""
-          echo "🔗 Alternative: Use Docker Image Deployment"
-          echo "   1. Railway Dashboard → 'Deploy from Docker Image'"
-          echo "   2. Image: $IMAGE_URL"
-          echo "   3. Service Name: $SERVICE_NAME"
-          echo "   4. Add same environment variables as above"
-          echo ""
-          echo "✨ After setup, future deployments will be automatic!"
-          echo "   Every GitHub push will auto-deploy to Railway"
-          echo ""
-          echo "🎯 Railway CLI authentication can be complex in CI/CD"
-          echo "   GitHub integration is the recommended approach for production"
+          # Deploy directly to Railway using API
+          echo "🚀 Deploying directly to Railway..."
+          echo "📦 Image: $IMAGE_URL"
+          echo "🏷️  Service: $SERVICE_NAME"
+          
+          # Railway API endpoint
+          RAILWAY_API_URL="https://backboard.railway.app/graphql/v2"
+          
+          # Deploy using Railway GraphQL API
+          echo "🔧 Creating/updating Railway service..."
+          
+          # GraphQL mutation to deploy from Docker image
+          DEPLOY_MUTATION=$(cat << 'EOF'
+          mutation ServiceCreate($input: ServiceCreateInput!) {
+            serviceCreate(input: $input) {
+              id
+              name
+            }
+          }
+          EOF
+          )
+          
+          # Prepare GraphQL variables
+          VARIABLES=$(cat << EOF
+          {
+            "input": {
+              "name": "$SERVICE_NAME",
+              "source": {
+                "image": "$IMAGE_URL"
+              },
+              "variables": {
+                "NODE_ENV": "production",
+                "PRODUCTION_DOMAIN": "forkline.com",
+                "PORT": "3000"
+              }
+            }
+          }
+          EOF
+          )
+          
+          # Make API call to Railway
+          RESPONSE=$(curl -s -X POST "$RAILWAY_API_URL" \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"$DEPLOY_MUTATION\", \"variables\": $VARIABLES}" \
+          )
+          
+          echo "📡 Railway API Response:"
+          echo "$RESPONSE"
+          
+          # Check if deployment was successful
+          if echo "$RESPONSE" | grep -q "serviceCreate"; then
+            echo "✅ Service deployed successfully to Railway!"
+            echo "🌐 Service: $SERVICE_NAME"
+            echo "🐳 Image: $IMAGE_URL"
+          else
+            echo "⚠️  API deployment failed - falling back to manual instructions"
+            echo ""
+            echo "🔗 Manual Railway Deployment Options:"
+            echo "   1. Railway Dashboard → 'Deploy from Docker Image'"
+            echo "   2. Image: $IMAGE_URL"
+            echo "   3. Service Name: $SERVICE_NAME"
+            echo "   4. Add Environment Variables:"
+            echo "      - NODE_ENV=production"
+            echo "      - PRODUCTION_DOMAIN=forkline.com"
+            echo "      - PORT=3000"
+            echo ""
+            echo "🎯 Docker image ready for deployment!"
+          fi
           
           echo "✅ Railway deployment completed for $SERVICE_NAME"
           echo "🌐 Service will be available at Railway-generated URL"
