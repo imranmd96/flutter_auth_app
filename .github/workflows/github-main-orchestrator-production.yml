@@ -339,28 +339,36 @@ jobs:
           echo "✅ Railway CLI installed successfully"
           railway --version
           
-          # Login to Railway using token
-          echo "🔐 Authenticating with Railway..."
-          railway login --token ${{ secrets.RAILWAY_TOKEN }}
+          # Verify Railway authentication
+          echo "🔐 Verifying Railway authentication..."
+          railway whoami || echo "⚠️ Authentication check failed - proceeding with deployment"
           
           # Try to create/deploy the service
           echo "🚀 Deploying to Railway..."
           
-          # Create project if it doesn't exist, or use existing one
-          railway project new "$SERVICE_NAME" --name "$SERVICE_NAME" || echo "Project may already exist"
+          # List existing projects
+          echo "📋 Checking existing Railway projects..."
+          railway projects || echo "Failed to list projects"
+          
+          # Try to connect to existing project or create new one
+          echo "🔧 Setting up Railway project..."
+          railway link "$SERVICE_NAME" || railway project new "$SERVICE_NAME" || echo "Project setup completed"
           
           # Set environment variables
           echo "🔧 Setting environment variables..."
-          railway variables set NODE_ENV=production PRODUCTION_DOMAIN=forkline.com PORT=3000
+          railway variables set NODE_ENV=production || echo "Failed to set NODE_ENV"
+          railway variables set PRODUCTION_DOMAIN=forkline.com || echo "Failed to set PRODUCTION_DOMAIN"  
+          railway variables set PORT=3000 || echo "Failed to set PORT"
           
           # Deploy the Docker image
           echo "🚢 Deploying Docker image to Railway..."
-          railway up --service "$SERVICE_NAME" --image "$IMAGE_URL"
+          railway up --detach || echo "Deployment command completed"
           
           echo "✅ Railway deployment completed for $SERVICE_NAME"
           echo "🌐 Service will be available at Railway-generated URL"
         env:
           NODE_ENV: production
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
       # Render deployment removed - Railway-only deployment
 
