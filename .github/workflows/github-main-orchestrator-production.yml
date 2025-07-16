@@ -59,9 +59,9 @@ jobs:
         id: changes
         run: |
           # All available services
-          ALL_SERVICES="api-gateway,auth-service,user-service,nginx,mongodb,redis"
+          ALL_SERVICES="api-gateway,auth-service,user-service,nginx,redis"
           # Commented out services (not deploying):
-          # payment-service,chat-service,notification-service,review-service,loyalty-service,media-service,restaurant-service,analytics-service,inventory-service,menu-service,search-service,order-service,booking-service,geolocation-service
+          # payment-service,chat-service,notification-service,review-service,loyalty-service,media-service,restaurant-service,analytics-service,inventory-service,menu-service,search-service,order-service,booking-service,geolocation-service,mongodb
           
           # Detect changed services
           changed_services=""
@@ -433,7 +433,9 @@ jobs:
               "variables": {
                 "NODE_ENV": "production",
                 "PRODUCTION_DOMAIN": "forkline.com",
-                "PORT": "3000"
+                "PORT": "3000",
+                "MONGODB_URI": "mongodb+srv://imranmd96:imranmd96@book.bb9dssu.mongodb.net/forkline",
+                "DATABASE_URL": "mongodb+srv://imranmd96:imranmd96@book.bb9dssu.mongodb.net/forkline"
               }
             }
           }
@@ -528,7 +530,6 @@ jobs:
             "auth:https://auth.${{ env.PRODUCTION_DOMAIN }}/health"
             "user:https://user.${{ env.PRODUCTION_DOMAIN }}/health"
             "nginx:https://nginx.${{ env.PRODUCTION_DOMAIN }}/health"
-            "mongodb:https://mongodb.${{ env.PRODUCTION_DOMAIN }}/health"
             "redis:https://redis.${{ env.PRODUCTION_DOMAIN }}/health"
           )
           
