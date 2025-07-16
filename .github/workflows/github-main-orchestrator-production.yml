@@ -375,74 +375,19 @@ jobs:
           echo "🔧 Creating/updating Railway service..."
           
           # GraphQL mutation to deploy from Docker image
-          DEPLOY_MUTATION=$(cat << 'EOF'
-          mutation ServiceCreate($input: ServiceCreateInput!) {
-            serviceCreate(input: $input) {
-              id
-              name
-            }
-          }
-          EOF
-          )
+          DEPLOY_MUTATION='mutation ServiceCreate($input: ServiceCreateInput!) { serviceCreate(input: $input) { id name } }'
           
           # Prepare GraphQL variables
           if [[ "${{ steps.config.outputs.language }}" == "database" ]]; then
             # Database service environment variables
             if [[ "${{ matrix.service }}" == "mongodb" ]]; then
-              VARIABLES=$(cat << EOF
-          {
-            "input": {
-              "name": "$SERVICE_NAME",
-              "source": {
-                "image": "$IMAGE_URL"
-              },
-              "variables": {
-                "MONGO_INITDB_ROOT_USERNAME": "admin",
-                "MONGO_INITDB_ROOT_PASSWORD": "password",
-                "MONGO_INITDB_DATABASE": "forkline"
-              }
-            }
-          }
-          EOF
-              )
+              VARIABLES='{ "input": { "name": "'$SERVICE_NAME'", "source": { "image": "'$IMAGE_URL'" }, "variables": { "MONGO_INITDB_ROOT_USERNAME": "admin", "MONGO_INITDB_ROOT_PASSWORD": "password", "MONGO_INITDB_DATABASE": "forkline" } } }'
             elif [[ "${{ matrix.service }}" == "redis" ]]; then
-              VARIABLES=$(cat << EOF
-          {
-            "input": {
-              "name": "$SERVICE_NAME",
-              "source": {
-                "image": "$IMAGE_URL"
-              },
-              "variables": {
-                "REDIS_PASSWORD": "password"
-              }
-            }
-          }
-          EOF
-              )
+              VARIABLES='{ "input": { "name": "'$SERVICE_NAME'", "source": { "image": "'$IMAGE_URL'" }, "variables": { "REDIS_PASSWORD": "password" } } }'
             fi
           else
             # Application service environment variables
-            VARIABLES=$(cat << EOF
-          {
-            "input": {
-              "name": "$SERVICE_NAME",
-              "source": {
-                "image": "$IMAGE_URL"
-              },
-              "variables": {
-                "NODE_ENV": "production",
-                "PRODUCTION_DOMAIN": "forkline.com",
-                "PORT": "3000",
-                "MONGODB_URI": "mongodb+srv://imranmd96:imranmd96@book.bb9dssu.mongodb.net/forkline",
-                "DATABASE_URL": "mongodb+srv://imranmd96:imranmd96@book.bb9dssu.mongodb.net/forkline",
-                "REDIS_URL": "redis://:password@forkline-redis.railway.app:6379",
-                "REDIS_PASSWORD": "password"
-              }
-            }
-          }
-          EOF
-            )
+            VARIABLES='{ "input": { "name": "'$SERVICE_NAME'", "source": { "image": "'$IMAGE_URL'" }, "variables": { "NODE_ENV": "production", "PRODUCTION_DOMAIN": "forkline.com", "PORT": "3000", "MONGODB_URI": "mongodb+srv://imranmd96:imranmd96@book.bb9dssu.mongodb.net/forkline", "DATABASE_URL": "mongodb+srv://imranmd96:imranmd96@book.bb9dssu.mongodb.net/forkline", "REDIS_URL": "redis://:password@forkline-redis.railway.app:6379", "REDIS_PASSWORD": "password" } } }'
           fi
           
           # Make API call to Railway
