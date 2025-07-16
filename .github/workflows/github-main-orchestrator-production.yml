@@ -59,7 +59,9 @@ jobs:
         id: changes
         run: |
           # All available services
-          ALL_SERVICES="api-gateway,auth-service,payment-service,chat-service,notification-service,user-service,review-service,loyalty-service,media-service,restaurant-service,analytics-service,inventory-service,menu-service,search-service,order-service,booking-service,geolocation-service"
+          ALL_SERVICES="api-gateway,auth-service,user-service,nginx"
+          # Commented out services (not deploying):
+          # payment-service,chat-service,notification-service,review-service,loyalty-service,media-service,restaurant-service,analytics-service,inventory-service,menu-service,search-service,order-service,booking-service,geolocation-service
           
           # Detect changed services
           changed_services=""
@@ -257,6 +259,12 @@ jobs:
               fi
               ;;
               
+            "nginx")
+              echo "🌐 Nginx configuration check..."
+              echo "✅ Nginx service ready - no build steps required"
+              echo "📋 Configuration files will be used from Docker image"
+              ;;
+              
             *)
               echo "❌ Unsupported language: ${{ steps.config.outputs.language }}"
               exit 1
@@ -305,7 +313,7 @@ jobs:
       - name: Deploy to Railway (Automated)
         if: github.ref == 'refs/heads/main'
         run: |
-          echo "🚀 Automated Railway Deployment Starting..."
+          echo "🚀 Railway Deployment Starting..."
           
           SERVICE_NAME="forkline-${{ matrix.service }}"
           IMAGE_URL="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}"
@@ -313,36 +321,44 @@ jobs:
           echo "📋 Service: $SERVICE_NAME"
           echo "🐳 Image: $IMAGE_URL"
           
-                    # Focus on Docker build success and provide deployment options
-          echo "🔧 Docker image ready for deployment..."
-          echo "🎯 Skipping Railway API (use GitHub integration for automatic deployment)"
-          echo ""
-          echo "🐳 ✅ Docker image built and pushed successfully!"
-          echo "📦 Image URL: $IMAGE_URL"
-          echo ""
-          echo "🚀 RECOMMENDED: One-Time Railway Setup (Then Automatic Forever)"
-          echo "   1. Go to: https://railway.app/dashboard"
-          echo "   2. Click 'New Project' → 'Deploy from GitHub Repo'"
-          echo "   3. Connect this repository: imranmd96/flutter_auth_app"
-          echo "   4. Set Root Directory: backend/${{ matrix.service }}"
-          echo "   5. Set Build Method: Dockerfile"
-          echo "   6. Set Dockerfile Path: Dockerfile.prod"
-          echo "   7. Add Environment Variables:"
-          echo "      - NODE_ENV=production"
-          echo "      - PRODUCTION_DOMAIN=forkline.com"
-          echo "      - PORT=3000"
-          echo "   8. Deploy!"
-          echo ""
-          echo "✨ After this setup, future deployments will be 100% automatic!"
-          echo "   Every GitHub push will auto-deploy to Railway"
-          echo ""
-          echo "🔗 Alternative: Use Docker Image"
-          echo "   1. Railway Dashboard → 'Deploy from Docker Image'"
-          echo "   2. Image: $IMAGE_URL"
-          echo "   3. Name: $SERVICE_NAME"
-          echo ""
-          echo "🎯 Both methods work - GitHub integration is recommended for automation!"
-          echo "✅ Workflow completed successfully - ready for deployment!"
+          # Install Railway CLI
+          echo "📦 Installing Railway CLI..."
+          if ! npm install -g @railway/cli; then
+            echo "❌ Failed to install Railway CLI via npm"
+            echo "🔄 Trying alternative installation..."
+            curl -fsSL https://railway.app/install.sh | sh
+            export PATH="$HOME/.railway/bin:$PATH"
+          fi
+          
+          # Verify Railway CLI installation
+          if ! command -v railway &> /dev/null; then
+            echo "❌ Railway CLI installation failed"
+            exit 1
+          fi
+          
+          echo "✅ Railway CLI installed successfully"
+          railway --version
+          
+          # Login to Railway using token
+          echo "🔐 Authenticating with Railway..."
+          railway login --token ${{ secrets.RAILWAY_TOKEN }}
+          
+          # Try to create/deploy the service
+          echo "🚀 Deploying to Railway..."
+          
+          # Create project if it doesn't exist, or use existing one
+          railway project new "$SERVICE_NAME" --name "$SERVICE_NAME" || echo "Project may already exist"
+          
+          # Set environment variables
+          echo "🔧 Setting environment variables..."
+          railway variables set NODE_ENV=production PRODUCTION_DOMAIN=forkline.com PORT=3000
+          
+          # Deploy the Docker image
+          echo "🚢 Deploying Docker image to Railway..."
+          railway up --service "$SERVICE_NAME" --image "$IMAGE_URL"
+          
+          echo "✅ Railway deployment completed for $SERVICE_NAME"
+          echo "🌐 Service will be available at Railway-generated URL"
         env:
           NODE_ENV: production
 
@@ -391,26 +407,29 @@ jobs:
         run: |
           echo "🔍 Running system-wide health check..."
           
-          # List of all service health endpoints
+          # List of active service health endpoints
           services=(
             "api:https://api.${{ env.PRODUCTION_DOMAIN }}/health"
             "auth:https://auth.${{ env.PRODUCTION_DOMAIN }}/health"
-            "payment:https://payment.${{ env.PRODUCTION_DOMAIN }}/health"
-            "chat:https://chat.${{ env.PRODUCTION_DOMAIN }}/health"
-            "notification:https://notification.${{ env.PRODUCTION_DOMAIN }}/health"
             "user:https://user.${{ env.PRODUCTION_DOMAIN }}/health"
-            "review:https://review.${{ env.PRODUCTION_DOMAIN }}/health"
-            "loyalty:https://loyalty.${{ env.PRODUCTION_DOMAIN }}/health"
-            "media:https://media.${{ env.PRODUCTION_DOMAIN }}/health"
-            "restaurant:https://restaurant.${{ env.PRODUCTION_DOMAIN }}/health"
-            "analytics:https://analytics.${{ env.PRODUCTION_DOMAIN }}/health"
-            "inventory:https://inventory.${{ env.PRODUCTION_DOMAIN }}/health"
-            "menu:https://menu.${{ env.PRODUCTION_DOMAIN }}/health"
-            "search:https://search.${{ env.PRODUCTION_DOMAIN }}/health"
-            "order:https://order.${{ env.PRODUCTION_DOMAIN }}/health"
-            "booking:https://booking.${{ env.PRODUCTION_DOMAIN }}/health"
-            "geolocation:https://geolocation.${{ env.PRODUCTION_DOMAIN }}/health"
+            "nginx:https://nginx.${{ env.PRODUCTION_DOMAIN }}/health"
           )
+          
+          # Commented out service health endpoints (not deploying):
+          # "payment:https://payment.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "chat:https://chat.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "notification:https://notification.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "review:https://review.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "loyalty:https://loyalty.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "media:https://media.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "restaurant:https://restaurant.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "analytics:https://analytics.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "inventory:https://inventory.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "menu:https://menu.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "search:https://search.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "order:https://order.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "booking:https://booking.${{ env.PRODUCTION_DOMAIN }}/health"
+          # "geolocation:https://geolocation.${{ env.PRODUCTION_DOMAIN }}/health"
           
           healthy_services=0
           total_services=${#services[@]}

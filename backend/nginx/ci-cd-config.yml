@@ -1,0 +1,14 @@
+service_name: nginx
+display_name: "Nginx Load Balancer"
+language: nginx
+deployment_platform: railway
+docker_file: Dockerfile.prod
+health_check_url: https://nginx.forkline.com/health
+deployment_secrets:
+  - RAILWAY_TOKEN
+environment_variables:
+  - PRODUCTION_DOMAIN=forkline.com
+build_steps:
+  - echo "No build steps needed for Nginx"
+notification_icon: "🌐"
+subdomain: nginx 
