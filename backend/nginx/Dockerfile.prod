@@ -26,10 +26,14 @@ RUN mkdir -p /var/log/nginx \
 # Copy Nginx configuration
 COPY conf.d/default.conf /etc/nginx/conf.d/default.conf
 
-# Copy SSL certificates if they exist
-COPY ssl/fullchain.pem /etc/ssl/private/fullchain.pem
-COPY ssl/privkey.pem /etc/ssl/private/privkey.pem
-COPY ssl/dhparam.pem /etc/ssl/private/dhparam.pem
+# Generate self-signed SSL certificates for Docker build
+# Railway will handle real SSL termination at platform level
+RUN apk add --no-cache openssl \
+    && openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+       -keyout /etc/ssl/private/privkey.pem \
+       -out /etc/ssl/private/fullchain.pem \
+       -subj "/C=US/ST=State/L=City/O=ForkLine/CN=forkline.com" \
+    && openssl dhparam -out /etc/ssl/private/dhparam.pem 1024
 
 # Copy welcome page
 COPY welcome.html /usr/share/nginx/html/welcome.html
