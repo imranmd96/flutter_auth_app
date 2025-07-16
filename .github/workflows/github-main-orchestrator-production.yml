@@ -302,72 +302,69 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Deploy to Railway
+      - name: Deploy to Railway (Automated)
         if: github.ref == 'refs/heads/main'
         run: |
-          echo "🚀 Deploying to Railway..."
+          echo "🚀 Automated Railway Deployment Starting..."
           
-          # Install Railway CLI with fallback methods
-          echo "📦 Installing Railway CLI..."
+          SERVICE_NAME="forkline-${{ matrix.service }}"
+          IMAGE_URL="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}"
           
-          # Method 1: Try npm installation (most reliable in CI)
-          if npm install -g @railway/cli@3.5.0 2>/dev/null; then
-            echo "✅ Railway CLI installed via npm"
+          echo "📋 Service: $SERVICE_NAME"
+          echo "🐳 Image: $IMAGE_URL"
+          
+          # Method 1: Try Railway API deployment (most reliable)
+          echo "🔧 Deploying via Railway API..."
+          
+          # Create/Update Railway service using API
+          DEPLOY_RESPONSE=$(curl -s -X POST \
+            "https://backboard.railway.app/graphql" \
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "query": "mutation { serviceCreate(input: { name: \"'$SERVICE_NAME'\", source: { image: \"'$IMAGE_URL'\" }, variables: { NODE_ENV: \"production\", PRODUCTION_DOMAIN: \"forkline.com\", PORT: \"3000\" } }) { id } }"
+            }' || echo "API_FAILED")
+          
+          if [[ "$DEPLOY_RESPONSE" == *"serviceCreate"* && "$DEPLOY_RESPONSE" != "API_FAILED" ]]; then
+            echo "✅ Railway API deployment successful!"
+            echo "🎉 Service $SERVICE_NAME deployed with image $IMAGE_URL"
           else
-            echo "⚠️ npm installation failed, trying direct download..."
+            echo "⚠️ Railway API method failed, trying Railway CLI..."
             
-            # Method 2: Direct download with specific version
-            if curl -fsSL https://github.com/railwayapp/cli/releases/download/v3.5.0/railway_3.5.0_linux_amd64.tar.gz -o railway.tar.gz; then
-              tar -xzf railway.tar.gz
-              chmod +x railway
-              sudo mv railway /usr/local/bin/ || mv railway $HOME/bin/
-              echo "✅ Railway CLI installed via direct download"
-            else
-              echo "❌ All installation methods failed"
-              exit 1
-            fi
-          fi
-          
-          echo "🔐 Railway CLI installed, using token from environment..."
-          echo "🚀 Deploying service: ${{ matrix.service }}"
-          
-          cd backend/${{ matrix.service }}
-          
-          # Create a simple railway.toml for configuration
-          echo "📋 Creating Railway configuration..."
-          cat > railway.toml << EOF
+            # Fallback: Railway CLI method
+            npm install -g @railway/cli@latest
+            
+            cd backend/${{ matrix.service }}
+            
+            # Create railway.toml
+            cat > railway.toml << EOF
           [build]
           builder = "dockerfile"
           dockerfilePath = "Dockerfile.prod"
           
           [deploy]
-          startCommand = "npm start"
           healthcheckPath = "/health"
           healthcheckTimeout = 300
           restartPolicyType = "on_failure"
           EOF
-          
-          # Deploy using Railway CLI with proper project setup
-          echo "🐳 Starting Railway deployment..."
-          
-          # Set Railway environment variables
-          export RAILWAY_TOKEN="${{ secrets.RAILWAY_TOKEN }}"
-          
-          # Try to create/link project using Railway CLI
-          echo "🔧 Setting up Railway project..."
-          
-          # Method 1: Try to link/create project
-          if railway link 2>/dev/null || railway init "forkline-${{ matrix.service }}" 2>/dev/null; then
-            echo "✅ Railway project linked/created successfully"
-            # Deploy the service
-            echo "🚀 Deploying to Railway..."
-            railway up --detach
-          else
-            echo "⚠️ Railway CLI method failed, falling back to Docker-only build"
-            echo "🐳 Docker image has been built and pushed to:"
-            echo "   ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}"
-            echo "📋 Please deploy manually via Railway dashboard using this image"
-            echo "🔗 Railway Dashboard: https://railway.app/dashboard"
+            
+            # Try CLI deployment
+            export RAILWAY_TOKEN="${{ secrets.RAILWAY_TOKEN }}"
+            
+            if railway init --name "$SERVICE_NAME" 2>/dev/null || railway link 2>/dev/null; then
+              echo "✅ Railway CLI project setup successful"
+              railway up --detach
+              echo "✅ Railway CLI deployment successful!"
+            else
+              echo "⚠️ Both API and CLI methods failed"
+              echo "🐳 Docker image built and pushed successfully to:"
+              echo "   $IMAGE_URL"
+              echo "📋 Manual deployment options:"
+              echo "   1. Railway Dashboard: https://railway.app/dashboard"
+              echo "   2. Use the Docker image URL above"
+              echo "   3. Connect GitHub repo directly in Railway"
+              exit 1
+            fi
           fi
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
