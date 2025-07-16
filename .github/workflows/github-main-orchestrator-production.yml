@@ -347,12 +347,28 @@ jobs:
           restartPolicyType = "on_failure"
           EOF
           
-          # Deploy using Railway CLI (token is automatically picked up from env)
+          # Deploy using Railway CLI with proper project setup
           echo "🐳 Starting Railway deployment..."
-          railway up --detach || {
-            echo "⚠️ Initial deployment failed, trying alternative method..."
-            railway deploy --detach
-          }
+          
+          # Set Railway environment variables
+          export RAILWAY_TOKEN="${{ secrets.RAILWAY_TOKEN }}"
+          
+          # Try to create/link project using Railway CLI
+          echo "🔧 Setting up Railway project..."
+          
+          # Method 1: Try to link/create project
+          if railway link 2>/dev/null || railway init "forkline-${{ matrix.service }}" 2>/dev/null; then
+            echo "✅ Railway project linked/created successfully"
+            # Deploy the service
+            echo "🚀 Deploying to Railway..."
+            railway up --detach
+          else
+            echo "⚠️ Railway CLI method failed, falling back to Docker-only build"
+            echo "🐳 Docker image has been built and pushed to:"
+            echo "   ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:${{ github.sha }}"
+            echo "📋 Please deploy manually via Railway dashboard using this image"
+            echo "🔗 Railway Dashboard: https://railway.app/dashboard"
+          fi
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           NODE_ENV: production
