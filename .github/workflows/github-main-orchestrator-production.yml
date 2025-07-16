@@ -397,12 +397,4 @@ jobs:
             echo "🎉 All services are healthy!"
           else
             echo "⚠️ Some services are unhealthy"
-          fi
-
-  final-notification:
-    runs-on: ubuntu-latest
-    needs: [detect-changes, deploy-services, system-health-check]
-    if: always() && needs.detect-changes.outputs.changed-services != ''
-    
-    steps:
-      # Final deployment notification removed - Slack notifications disabled 
+          fi 
